@@ -88,7 +88,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 var(--space-4) calc(var(--s
 .shield-img { display: block; background: var(--shield); aspect-ratio: 4 / 5; position: relative; overflow: hidden; }
 .shield-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
 .shield-img:hover img, .shield-img:active img { transform: scale(1.03); }
-.shield-img .ext { position: absolute; right: var(--space-2); top: var(--space-2); background: rgba(14,30,58,.85); color: #fff; font-size: var(--text-xs); font-weight: 700; padding: 2px var(--space-2); border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
+.shield-img .ext { position: absolute; right: var(--space-2); bottom: var(--space-2); background: rgba(14,30,58,.85); color: #fff; font-size: var(--text-xs); font-weight: 700; padding: 2px var(--space-2); border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
 .shield-info { padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); flex: 1; }
 .shield-info h3 { font-size: var(--text-sm); font-weight: 700; }
 .shield-meta { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }
@@ -134,9 +134,11 @@ mark { background: #fff1a8; color: inherit; border-radius: 3px; padding: 0 1px; 
 .vip { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column; }
 .vip-photo { position: relative; aspect-ratio: 1; border: 0; padding: 0; background: var(--surface-2); overflow: hidden; display: block; width: 100%; }
 .vip-photo img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.06); }
-.vip-code { position: absolute; left: var(--space-2); bottom: var(--space-2); background: var(--navy); color: #fff; border-radius: 8px; padding: var(--space-1) var(--space-2); display: flex; flex-direction: column; align-items: center; line-height: 1.05; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-.vip-code small { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #a9c3e6; }
-.vip-code b { font-size: var(--text-lg); font-weight: 800; }
+.vip-code { display: flex; align-items: baseline; justify-content: center; gap: var(--space-2); background: var(--navy); color: #fff; padding: var(--space-2) var(--space-3); line-height: 1; }
+.vip-code small { font-size: var(--text-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #a9c3e6; }
+.vip-code b { font-size: var(--text-lg); font-weight: 800; font-variant-numeric: tabular-nums; }
+.vip-code.none { background: var(--surface-2); color: var(--muted); border-bottom: 1px solid var(--border); }
+.vip-code.none small { color: var(--muted); }
 .vip-body { padding: var(--space-3); text-align: center; display: flex; flex-direction: column; gap: 2px; flex: 1; justify-content: flex-start; }
 .vip-name { font-size: var(--text-sm); font-weight: 700; }
 .vip-title { font-size: var(--text-xs); color: var(--muted); line-height: 1.35; }
@@ -267,7 +269,7 @@ mark { background: #fff1a8; color: inherit; border-radius: 3px; padding: 0 1px; 
 .sp-group h3 { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: var(--space-2); }
 .sp-item { width: 100%; text-align: left; display: flex; gap: var(--space-3); align-items: center; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-2); }
 .sp-item img { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; flex: none; }
-.sp-item .k { font-weight: 800; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sp-item .k { min-width: 4.6em; font-weight: 800; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sp-item .v { flex: 1; min-width: 0; }
 .sp-item .v small { display: block; color: var(--muted); font-size: var(--text-xs); }
 .sp-empty { color: var(--muted); text-align: center; padding: var(--space-10) 0; }

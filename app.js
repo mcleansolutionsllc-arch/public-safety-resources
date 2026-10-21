@@ -49,8 +49,8 @@
     <article class="vip${v[1] === 'Vacant' ? ' vacant' : ''}">
       <button class="vip-photo" data-view="vip${v[0]}" data-cap="${esc(v[1])}${cosign ? ' · Jagger Hall ' + cosign : ''}" aria-label="Enlarge photo of ${esc(v[1])}">
         <img src="./img/vip${v[0]}.jpg" alt="${esc(v[1])}" loading="lazy">
-        ${cosign ? `<span class="vip-code"><small>Jagger Hall</small><b>${cosign}</b></span>` : ''}
       </button>
+      ${cosign ? `<div class="vip-code"><small>Jagger Hall</small><b>${cosign}</b></div>` : ''}
       <div class="vip-body">
         <span class="vip-name">${esc(v[1])}</span>
         <span class="vip-title">${esc(v[2])}</span>
@@ -130,7 +130,10 @@
         }
         if (!ok) continue;
         if (s.lt.includes(p.phrase)) sc += 25;
-        if (s[4]) sc += 2;
+        if (p.toks.every(t => s.lt.includes(t))) sc += 15;
+        if (s.lt.startsWith(p.toks[0])) sc += 8;
+        if (s[4]) sc += 4;
+        sc -= s.lt.length / 25;
         res.push({ s, sc });
       }
       res.sort((a, b) => b.sc - a.sc || parseFloat(a.s[0]) - parseFloat(b.s[0]));
