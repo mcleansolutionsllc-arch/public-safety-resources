@@ -47,7 +47,8 @@
     <a href="#radio" class="chip">Radio Codes</a>
     <a href="#phonetic" class="chip">Phonetic</a>
     <a href="#reports" class="chip">Report Writing</a>
-    <a href="#tours" class="chip">Tour Schedules</a>
+    <a href="#tours" class="chip">Tour Master</a>
+    <a href="#clubs" class="chip">Club Rooms</a>
     <a href="#uniform" class="chip">Uniform</a>
     <a href="#summons" class="chip">Summons</a>
     <a href="#peel" class="chip">Peel's Principles</a>
@@ -178,10 +179,24 @@
   <section id="tours" class="sec">
     <div class="sec-head">
       <p class="eyebrow">Staffing</p>
-      <h2>Tour Schedules</h2>
-      <p class="lede">Tap a schedule to open it full screen and zoom in.</p>
+      <h2>Tour Master Schedules</h2>
+      <p class="lede">Pick a shift. The tab for the shift running right now opens by default, and today's column is highlighted.</p>
     </div>
-    <div class="tour-list" id="tourList"></div>
+    <div class="tabs" role="tablist" aria-label="Tour shifts" id="tourTabs"></div>
+    <div id="tourPanel" role="tabpanel"></div>
+  </section>
+
+  <section id="clubs" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">450 Grand Concourse</p>
+      <h2>C-Building Club Rooms</h2>
+      <p class="lede">Room assignments for student clubs and offices.</p>
+    </div>
+    <label class="search search-lg" for="roomQ">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="roomQ" type="search" autocomplete="off" placeholder="Filter by room or club" aria-label="Filter club rooms">
+    </label>
+    <div id="rooms"></div>
   </section>
 
   <section id="uniform" class="sec">

@@ -112,3 +112,147 @@ window.CONTENT = {
     ['tour3', 'Tour 3 · Evening', '1500 × 2330', 'As of 9/30/2026']
   ]
 };
+
+/* ---------- Tour master schedules (transcribed from posted sheets; "OT:" = overtime, "X" = blocked) ---------- */
+(() => {
+  const r = (v, n = 1) => Array(n).fill(v);
+  const A = '2300-0730', D = '0700-1530', E = '1500-2330';
+  window.CONTENT.tourMaster = [
+    {
+      id: 'tour1', name: 'Tour 1', label: 'Midnight', time: '2300 × 0730', asof: 'As of 9/6/2026', startHour: 23,
+      cols: ['SUN/MON', 'MON/TUE', 'TUE/WED', 'WED/THUR', 'THUR/FRI', 'FRI/SAT', 'SAT/SUN'],
+      groups: [
+        { title: 'Peace Officers', rows: [
+          ['PO Jackson', [A, A, 'RDO', 'RDO', A, A, A], 40],
+          ['Peace Officer Overtime', ['NONE', 'NONE', 'OT:' + A, 'OT:' + A, 'NONE', 'NONE', 'NONE'], 16]
+        ], total: ['Total Peace Officers', [1, 1, 1, 1, 1, 1, 1], 56] },
+        { title: 'Security Assistants', rows: [
+          ['CSA Turay', ['RDO', 'RDO', A, A, A, A, A], 40],
+          ['CSA N. Igwe', [A, A, A, A, A, 'RDO', 'RDO'], 40],
+          ['CSA MD Ullah', [A, A, A, 'RDO', 'RDO', A, A], 40],
+          ['CSA MD Shahidullha', ['RDO', 'RDO', A, A, A, A, A], 40]
+        ], total: ['Total CSAs', [2, 2, 4, 3, 3, 3, 3], 160] },
+        { title: 'Dreamland Officers', rows: [
+          ['Dreamland Officer', [A, A, 'NONE', A, A, A, A], 56],
+          ['Dreamland Officer', r(A, 7), 56],
+          ['Dreamland Officer', [A, A, 'NONE', 'NONE', 'NONE', 'NONE', 'NONE'], 16],
+          ['Firewatch Savoy Dreamland', r('FW:' + A, 7), 56]
+        ], total: ['Total Dreamland Officers', [4, 4, 2, 3, 3, 3, 3], 128] },
+        { title: 'Shift Total', rows: [], total: ['Total Officers on Shift', [7, 7, 7, 7, 7, 7, 7], ''] },
+        { title: 'Sergeants', rows: [
+          ['Sgt. Gomez – 01/1994', [A, A, A, A, 'RDO', 'RDO', A], 40],
+          ['Sergeant Overtime', ['', '', '', '', 'OT:' + A, 'OT:' + A, ''], 16]
+        ], total: ['Total Sergeants', [1, 1, 1, 1, 1, 1, 1], 56] }
+      ],
+      footer: 'Operations Lieutenant – Lt. Koutsidis · Director of Public Safety – Chief Bernabe'
+    },
+    {
+      id: 'tour2', name: 'Tour 2', label: 'Day', time: '0700 × 1530', asof: 'As of 9/28/2026', startHour: 7,
+      cols: ['SUN', 'MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT'],
+      groups: [
+        { title: 'Peace Officers', rows: [
+          ['PO Ortiz – 3/10/2007 – Armed Floater', ['RDO', D, D, D, D, D, 'RDO'], 40],
+          ['PO DeJesus – 3/6/2009 – Armed Floater', ['RDO', D, D, D, D, D, 'RDO'], 40],
+          ['PO Perez – 5/13/2022', ['RDO', D, D, D, D, D, 'RDO'], 40],
+          ['PO McLean – 11/13/2023', ['0700-1900', D, D, D, D, 'RDO', 'RDO'], 40],
+          ['Overtime Peace Officers', [...r('NONE', 6), 'OT:' + D], 8],
+          ['Overtime Peace Officers', [...r('NONE', 6), 'OT:' + D], 8]
+        ], total: ['Total Peace Officers', [1, 4, 4, 4, 4, 3, 2], 176] },
+        { title: 'Security Assistants', rows: [
+          ['CSA F. Rodriguez – 10/18/2021', ['RDO', D, D, D, D, D, 'RDO'], 40],
+          ['CSA D. Villa – 01/06/26', [D, D, D, D, D, 'RDO', 'RDO'], 40],
+          ['CSA L. Serrano – 11/24/25', ['RDO', 'RDO', D, D, D, D, D], 40],
+          ['CSA Overtime', ['OT:' + D, ...r('NONE', 6)], 8]
+        ], total: ['Total CSAs', [2, 2, 3, 3, 3, 2, 1], 128] },
+        { title: 'Dreamland Posts', rows: [
+          ['Sector Adam', ['NONE', D, 'X', 'X', 'X', D, 'NONE'], 16],
+          ['Sector Boy', ['NONE', D, 'X', 'X', 'X', D, 'NONE'], 16],
+          ['Sector Charlie', ['NONE', D, D, D, D, D, 'NONE'], 40],
+          ['Sector David', ['NONE', D, D, D, D, D, 'NONE'], 40],
+          ['Sector Lincoln', ['NONE', D, D, D, D, D, D], 48],
+          ['Sector George', ['NONE', ...r('0830-1530', 5), 'NONE'], 26],
+          ['Sector Mary', ['NONE', D, D, D, D, D, 'NONE'], 40],
+          ['Sector Adam (weekend)', [D, ...r('NONE', 5), D], 16],
+          ['Sector Boy (weekend)', [D, ...r('NONE', 5), D], 16],
+          ['Sector Charlie (weekend)', [D, ...r('NONE', 5), D], 16],
+          ['Meal Relief Post', [D, ...r('NONE', 5), D], 16],
+          ['Firewatch Dreamland', ['FW:' + D, ...r('NONE', 5), 'FW:' + D], 16],
+          ['Sector Peter – Prow FD', ['NONE', ...r('0900-1530', 5), 'NONE'], 24],
+          ['Sector Peter – Prow RD', ['NONE', '0830-1530', '0800-1530', '0800-1530', '0800-1530', '0830-1530', 'NONE'], 28],
+          ['Sector Eddie – CLIP – Lobby', ['NONE', ...r('0800-1530', 4), 'NONE', 'NONE'], 28],
+          ['Sector Eddie – CLIP – Floater', ['NONE', ...r('1300-1530', 4), 'NONE', 'NONE'], 10],
+          ['Sector Nora – Lobby', r('NONE', 7), 0]
+        ], total: ['Total Dreamland S/Os', [5, 11, 9, 9, 9, 9, 6], 396] },
+        { title: 'Shift Total', rows: [], total: ['Officers per Shift', [8, 16, 16, 16, 16, 15, 9], ''] },
+        { title: 'Sergeants', rows: [
+          ['Sgt. Wyatt LeCadre – 2/21/2016', [D, D, D, D, D, 'RDO', 'RDO'], ''],
+          ['Sgt. Myra Pinzon – 11/27/2023', ['RDO', 'RDO', D, D, D, D, D], '']
+        ] }
+      ]
+    },
+    {
+      id: 'tour3', name: 'Tour 3', label: 'Evening', time: '1500 × 2330', asof: 'As of 9/30/2026', startHour: 15,
+      cols: ['SUN', 'MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT'],
+      groups: [
+        { title: 'Peace Officers', rows: [
+          ['PO Rivera – 10/6/97', ['RDO', E, E, E, E, E, 'RDO'], 40],
+          ['PO McPhersen', [E, E, E, E, E, 'RDO', 'RDO'], 40],
+          ['PO Figueroa', ['RDO', 'RDO', E, E, E, E, E], 40],
+          ['Overtime Peace Officers', ['NONE', 'OT:' + E, 'NONE', 'NONE', 'NONE', 'OT:' + E, 'NONE'], 16]
+        ], total: ['Total Peace Officers', [1, 3, 3, 3, 3, 3, 1], ''] },
+        { title: 'Security Assistants', rows: [
+          ['CSA A. Johnson', ['RDO', 'RDO', E, E, E, E, E], 40],
+          ['CSA Y. Ruvel', ['RDO', 'RDO', E, E, E, E, E], 40],
+          ['CSA Pierre-Louis – 7/11/16', [E, E, 'RDO', 'RDO', E, E, E], 40],
+          ['CSA P. Hernandez – Part-Timer', ['RDO', E, E, E, E, 'RDO', 'RDO'], 32],
+          ['CSA J. Al-Mamud', [E, E, E, E, E, 'RDO', 'RDO'], 40]
+        ], total: ['Total CSAs', [2, 3, 4, 4, 5, 3, 3], 192] },
+        { title: 'Dreamland Posts', rows: [
+          ['Sector Adam', ['NONE', E, E, E, 'X', E, 'NONE'], 40],
+          ['Sector Boy', ['NONE', E, E, E, E, E, 'NONE'], 40],
+          ['Sector Charlie', ['NONE', E, E, E, E, E, 'NONE'], 40],
+          ['Sector George', ['NONE', ...r('1530-1730', 5), 'NONE'], 10],
+          ['Sector David', ['NONE', E, E, E, E, E, 'NONE'], 40],
+          ['Sector Mary', ['NONE', E, E, E, E, E, 'NONE'], 32.5],
+          ['Sector Lincoln', ['NONE', E, E, E, E, E, 'NONE'], 40],
+          ['Sector Adam (weekend)', [E, ...r('NONE', 5), E], 16],
+          ['Sector Boy (weekend)', [E, ...r('NONE', 5), E], 16],
+          ['Sector Charlie (weekend)', [E, ...r('NONE', 5), E], 16],
+          ['Firewatch – Savoy', ['FW:' + E, ...r('NONE', 5), 'FW:' + E], 16],
+          ['Sector Peter – Prow – Front Door', ['NONE', ...r('1530-1700', 5), 'NONE'], 7.5],
+          ['Sector Peter – Prow Rear Door', ['NONE', ...r('1530-1730', 5), 'NONE'], 10],
+          ['Sector Eddie – CLIP – Lobby', ['NONE', ...r('1530-1700', 4), 'NONE', 'NONE'], 6],
+          ['Sector Eddie – Floater', ['NONE', ...r('1530-1700', 4), 'NONE', 'NONE'], 6],
+          ['Sector Nora – Lobby', r('NONE', 7), 0]
+        ], total: ['Total Dreamland S/Os', [4, 11, 11, 11, 10, 9, 4], ''] },
+        { title: 'Shift Total', rows: [], total: ['Officers per Shift', [7, 17, 18, 18, 18, 15, 8], ''] },
+        { title: 'Sergeants', rows: [
+          ['Sgt. Curt Caesar – 3/19/2017', ['OT:' + E, 'OT:' + E, E, E, E, E, E], 56]
+        ] }
+      ]
+    }
+  ];
+
+  window.CONTENT.clubRooms = {
+    building: 'C-Building', address: '450 Grand Concourse',
+    floors: [
+      ['3rd Floor', [
+        ['C-370–372', 'Student Activities Office'],
+        ['C-373', 'Black Student Union'],
+        ['C-377', 'College Discovery Club Room']
+      ]],
+      ['4th Floor', [
+        ['C-470', 'Animation Club'],
+        ['C-471', 'Math, Reimagine Justice, Craft for Community Club'],
+        ['C-472', 'Early Childhood Education Club'],
+        ['C-473', 'Black Student Union / Ecuadorian Association'],
+        ['C-474', 'Environmental Club'],
+        ['C-475', 'Puerto Rican Student Org.'],
+        ['C-476', 'Secretarial Science Club / The Hip Hop Club & Black Student Union'],
+        ['C-477', 'Physics Club'],
+        ['C-478', 'Engineering MACSS / STEM Club'],
+        ['C-479', 'Campus Ministry']
+      ]]
+    ]
+  };
+})();

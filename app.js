@@ -83,12 +83,60 @@
     <details><summary>${esc(t)}</summary><div class="acc-body">${body.split('\n').map(p => `<p>${esc(p)}</p>`).join('')}
       <button class="mini copy" data-copy="${esc(body.split('\n').filter(p => p.startsWith('At T/P/O') || p.startsWith('Or:')).join('\n') || body)}">Copy template</button></div></details>`).join('');
 
-  /* ---------- Tours ---------- */
-  $('#tourList').innerHTML = C.tours.map(([img, t, time, asof]) => `
-    <article class="tour">
-      <div class="tour-head"><h3>${esc(t)} <span class="tour-time">${esc(time)}</span></h3><span>${esc(asof)}</span></div>
-      <button class="doc-btn" data-view="${img}" data-cap="${esc(t)} (${esc(time)}) · ${esc(asof)}"><img src="./img/${img}.jpg" alt="${esc(t)} schedule" loading="lazy"><span class="doc-tag">Tap to zoom</span></button>
-    </article>`).join('');
+  /* ---------- Tour master schedules ---------- */
+  const TM = C.tourMaster;
+  const curTour = () => { const h = new Date().getHours(); return h >= 23 || h < 7 ? 'tour1' : h < 15 ? 'tour2' : 'tour3'; };
+  const todayCol = id => { const d = new Date(); const dow = d.getDay(); return id === 'tour1' && d.getHours() < 8 ? (dow + 6) % 7 : dow; };
+  const cellCls = v => { v = String(v); if (v === 'RDO') return 'rdo'; if (v === 'NONE' || v === '') return 'nn'; if (v === 'X') return 'x'; if (v.startsWith('OT:')) return 'ot'; if (v.startsWith('FW:')) return 'fw'; return 'on'; };
+  const cellTxt = v => String(v).replace(/^(OT|FW):/, '').replace('X', '');
+  const working = v => !['rdo', 'nn', 'x'].includes(cellCls(v));
+  let activeTour = curTour();
+  function renderTabs() {
+    const live = curTour();
+    $('#tourTabs').innerHTML = TM.map(t => `<button class="tab${t.id === activeTour ? ' on' : ''}" role="tab" aria-selected="${t.id === activeTour}" data-tour="${t.id}">
+      ${t.id === live ? '<span class="live">● On now</span>' : ''}<b>${t.name} · ${t.label}</b><small>${t.time}</small></button>`).join('');
+  }
+  function renderTour() {
+    const t = TM.find(x => x.id === activeTour); const tc = todayCol(t.id);
+    const dayName = t.cols[tc];
+    const duty = t.groups.filter(g => g.rows.length).map(g => {
+      const on = g.rows.filter(r => working(r[1][tc]));
+      return `<div class="duty-g card"><h4>${esc(g.title)}</h4>${on.length ? `<ul>${on.map(r => `<li><span>${esc(r[0])}</span><span>${esc(cellTxt(r[1][tc]))}${cellCls(r[1][tc]) === 'ot' ? ' · OT' : ''}</span></li>`).join('')}</ul>` : '<p class="none">No one scheduled</p>'}</div>`;
+    }).join('');
+    const head = `<tr><th class="name">${esc(t.name)} · ${esc(t.time)}</th>${t.cols.map((c, i) => `<th class="${i === tc ? 'today' : ''}">${c}</th>`).join('')}<th>HR</th></tr>`;
+    const body = t.groups.map(g => `<tr class="grp"><th colspan="9">${esc(g.title)}</th></tr>` +
+      g.rows.map(r => `<tr><td class="name">${esc(r[0])}</td>${r[1].map((v, i) => `<td class="${cellCls(v)}${i === tc ? ' today' : ''}">${esc(cellTxt(v))}</td>`).join('')}<td class="hr">${r[2] === '' ? '' : r[2]}</td></tr>`).join('') +
+      (g.total ? `<tr class="tot"><td class="name">${esc(g.total[0])}</td>${g.total[1].map((v, i) => `<td class="${i === tc ? 'today' : ''}">${v}</td>`).join('')}<td>${g.total[2]}</td></tr>` : '')).join('');
+    $('#tourPanel').innerHTML = `
+      <div class="tm-meta"><span><b>${esc(t.name)} · ${esc(t.label)}</b> (${esc(t.time)})</span><span>${esc(t.asof)}</span></div>
+      <div class="duty"><h3>On duty ${t.id === 'tour1' ? 'tonight' : 'today'} · ${esc(dayName)}</h3><div class="duty-groups">${duty}</div></div>
+      <h3 class="sub" style="margin-top:var(--space-6)">Full week</h3>
+      <div class="legend"><span><i style="background:#f9d9d5"></i>Overtime</span><span><i style="background:#fde3c7"></i>Firewatch</span><span><i style="background:var(--surface-2);border:1px solid var(--border)"></i>RDO / none</span><span><i style="background:var(--accent)"></i>Today</span></div>
+      <div class="tbl-wrap"><table class="tm"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <p class="tm-foot">Swipe the table sideways to see every day. ${t.footer ? esc(t.footer) : ''}</p>
+      <figure class="doc tm-orig"><button class="doc-btn" data-view="${t.id}" data-cap="${esc(t.name)} · ${esc(t.label)} (${esc(t.time)}) · ${esc(t.asof)}"><img src="./img/${t.id}.jpg" alt="Original posted ${esc(t.name)} schedule" loading="lazy"><span class="doc-tag">Original posted sheet</span></button></figure>`;
+  }
+  function selectTour(id) { activeTour = id; renderTabs(); renderTour(); }
+  $('#tourTabs').addEventListener('click', e => { const b = e.target.closest('[data-tour]'); if (b) selectTour(b.dataset.tour); });
+  $('#tourTabs').addEventListener('keydown', e => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const i = TM.findIndex(t => t.id === activeTour); const n = (i + (e.key === 'ArrowRight' ? 1 : TM.length - 1)) % TM.length;
+    selectTour(TM[n].id); $(`#tourTabs [data-tour="${TM[n].id}"]`).focus();
+  });
+  selectTour(activeTour);
+
+  /* ---------- Club rooms ---------- */
+  const CR = C.clubRooms; const roomId = c => 'room-' + c.replace(/\W+/g, '');
+  function renderRooms(q = '') {
+    q = q.toLowerCase().trim();
+    const html = CR.floors.map(([f, rooms]) => {
+      const list = rooms.filter(r => !q || (r[0] + ' ' + r[1]).toLowerCase().includes(q) || r[0].replace(/\W/g, '').toLowerCase().includes(q.replace(/\W/g, '')));
+      return list.length ? `<div class="floor"><h3>${CR.building} · ${f}</h3><div class="room-list">${list.map(r => `<div class="room" id="${roomId(r[0])}"><b>${esc(r[0])}</b><span>${esc(r[1])}</span></div>`).join('')}</div></div>` : '';
+    }).join('');
+    $('#rooms').innerHTML = html || '<p class="meta">No rooms match.</p>';
+  }
+  renderRooms();
+  $('#roomQ').addEventListener('input', e => renderRooms(e.target.value));
 
   /* ---------- Uniform ---------- */
   const now = new Date(); const md = (now.getMonth() + 1) * 100 + now.getDate();
@@ -221,6 +269,7 @@
     const sec = e.target.closest('[data-sec]'); if (sec) { e.preventDefault(); showSection(sec.dataset.sec); return; }
     const v = e.target.closest('[data-view]'); if (v) { e.preventDefault(); openViewer(v.dataset.view, v.dataset.cap); return; }
     const c = e.target.closest('[data-copy]'); if (c) { e.preventDefault(); copy(c.dataset.copy, 'Template copied'); return; }
+    const tj = e.target.closest('[data-tourjump]'); if (tj) { e.preventDefault(); $('#q').value = ''; closeGlobal(); selectTour(tj.dataset.tourjump); $('#tours').scrollIntoView(); return; }
     const j = e.target.closest('[data-jump]'); if (j) { e.preventDefault(); closeGlobal(); const t = document.getElementById(j.dataset.jump); if (t) { t.scrollIntoView({ block: 'center' }); t.classList.add('hit'); t.nextElementSibling && t.nextElementSibling.classList.add('hit'); setTimeout(() => { t.classList.remove('hit'); t.nextElementSibling && t.nextElementSibling.classList.remove('hit'); }, 1800); } }
   });
   document.addEventListener('keydown', e => {
@@ -245,11 +294,17 @@
     const jh = /^(jagger|jh)\s*(hall)?\s*(\d+)$/i.exec(q);
     const people = [...C.vip.map(v => [...v]), ...C.keyStaff.map(v => [...v, 0])].filter(v => (jh && v[3] === +jh[3]) || (!jh && m(v[1], v[2], v[3] ? 'jagger hall ' + v[3] : '')));
     if (people.length) groups.push(['Jagger Hall & key personnel', people.slice(0, 10).map(v => `<button class="sp-item" data-view="vip${v[0]}" data-cap="${esc(v[1])}${v[3] ? ' · Jagger Hall ' + v[3] : ''}"><img src="./img/vip${v[0]}.jpg" alt=""><span class="v">${esc(v[1])}<small>${esc(v[2])}</small></span>${v[3] ? `<span class="k">JH ${v[3]}</span>` : ''}</button>`)]);
+    const rooms = CR.floors.flatMap(f => f[1]).filter(r => m(r[0], r[1]) || r[0].replace(/\W/g, '').toLowerCase() === qn.replace(/\W/g, ''));
+    if (rooms.length) groups.push(['C-Building club rooms', rooms.slice(0, 8).map(r => `<button class="sp-item" data-jump="${roomId(r[0])}"><span class="k">${esc(r[0])}</span><span class="v">${esc(r[1])}</span></button>`)]);
+    if (ql.length > 2) {
+      const staff = []; TM.forEach(t => t.groups.forEach(g => g.rows.forEach(r => { if (r[0].toLowerCase().includes(ql) && !/overtime|^sector|dreamland officer|firewatch|meal relief/i.test(r[0])) staff.push([t, r]); })));
+      if (staff.length) groups.push(['Tour schedules', staff.slice(0, 8).map(([t, r]) => `<button class="sp-item" data-tourjump="${t.id}"><span class="k">${t.name.replace('Tour ', 'T')}</span><span class="v">${esc(r[0])}<small>${esc(t.label)} · ${esc(t.time)} · RDO: ${r[1].map((v, i) => v === 'RDO' ? t.cols[i] : '').filter(Boolean).join(', ') || 'none'}</small></span></button>`)]);
+    }
     const pho = C.phonetic.filter(w => ql.length > 1 && w.toLowerCase().startsWith(ql));
     if (pho.length) groups.push(['Phonetic alphabet', pho.map(w => `<button class="sp-item" data-jump="phonetic"><span class="k">${w[0]}</span><span class="v">${w}</span></button>`)]);
     const nar = C.narratives.filter(n => m(n[0]) || (ql.length > 3 && n[1].toLowerCase().includes(ql)));
     if (nar.length) groups.push(['Narrative templates', nar.map(n => `<button class="sp-item" data-jump="reports"><span class="v">${esc(n[0])}<small>${esc(n[1].slice(0, 90))}…</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['tours', 'Tour Schedules', 'midnight day evening tour 1 2 3 schedule'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);
