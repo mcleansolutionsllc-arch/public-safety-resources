@@ -30,17 +30,23 @@
     if (map[s] !== undefined) return map[s];
     return /Felony/.test(s) && !/Misd/.test(s) ? 'fel' : 'mis';
   };
-  $('#shieldGrid').innerHTML = C.shields.map((s, i) => `
+  const SHIELD_PATH = 'M100 4 C128 20 158 23 192 15 C197 30 197 44 195 60 C194 142 166 202 100 236 C34 202 6 142 5 60 C3 44 3 30 8 15 C42 23 72 20 100 4 Z';
+  const shieldSvg = `<svg class="badge-svg" viewBox="0 0 200 240" aria-hidden="true" preserveAspectRatio="none">
+      <path d="${SHIELD_PATH}" class="b-outer"/>
+      <path d="${SHIELD_PATH}" class="b-inner" transform="translate(100 120) scale(.9 .905) translate(-100 -120)"/>
+      <path d="${SHIELD_PATH}" class="b-line" transform="translate(100 120) scale(.84 .85) translate(-100 -120)"/>
+    </svg>`;
+  $('#shieldGrid').innerHTML = C.shields.map(s => `
     <article class="shield">
-      <a class="shield-img" href="${s.href}" target="_blank" rel="noopener" aria-label="Open ${esc(s.title)} on ypdcrime.com">
-        <img src="./img/${s.img}.jpg" alt="${esc(s.title)} poster" loading="${i < 4 ? 'eager' : 'lazy'}">
-        <span class="ext">ypdcrime <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+      <a class="badge" href="${s.href}" target="_blank" rel="noopener" aria-label="Open ${esc(s.title)} on ypdcrime.com">
+        ${shieldSvg}
+        <span class="badge-text${s.parts.length > 1 ? ' two' : ''}">
+          ${s.parts.map(([n, c]) => `<span class="b-name">${esc(n)}</span><span class="b-code">${/^\d/.test(c) ? '(code ' + esc(c) + ')' : esc(c)}</span>`).join('')}
+        </span>
       </a>
       <div class="shield-info">
-        <h3>${esc(s.title)}</h3>
-        <div class="shield-meta">${s.codes.length ? `<span class="code">PL ${s.codes.map(c => c[0]).join(' / ')}</span>` : ''}<span class="lvl ${shieldCls(s.cls)}">${esc(s.cls)}</span></div>
-        ${s.note ? `<p class="shield-note">${esc(s.note)}</p>` : ''}
-        <div class="read-row">${s.codes.map(c => `<button class="mini" data-sec="${c[2]}">Read ${c[0]} here</button>`).join('') || `<a class="mini" href="${s.href}" target="_blank" rel="noopener" style="text-decoration:none">Open guide</a>`}</div>
+        <span class="lvl ${shieldCls(s.cls)}">${esc(s.cls)}</span>
+        <div class="read-row">${s.codes.map(c => `<button class="mini" data-sec="${c[2]}" aria-label="Read ${c[0]} in the app">Read ${c[0]}</button>`).join('') || `<a class="mini" href="${s.href}" target="_blank" rel="noopener" style="text-decoration:none">Open guide</a>`}</div>
       </div>
     </article>`).join('');
 

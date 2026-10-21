@@ -3,17 +3,17 @@ const YPD = 'https://ypdcrime.com/penal.law/';
 
 window.CONTENT = {
   shields: [
-    { img: 'shield-larceny', title: 'Petit Larceny / Grand Larceny 4th', codes: [['155.25', '155', '155.25'], ['155.30', '155', '155.30']], href: YPD + 'article155.php#p155.25', cls: 'A Misd. / E Felony' },
-    { img: 'shield-mischief', title: 'Criminal Mischief 4th Degree', codes: [['145.00', '145', '145.00']], href: YPD + 'article145.php#p145.00', cls: 'A Misdemeanor' },
-    { img: 'shield-trespass', title: 'Trespass', codes: [['140.05', '140', '140.05']], href: YPD + 'article140.php#p140.05', cls: 'Violation' },
-    { img: 'shield-crimtrespass', title: 'Criminal Trespass 2nd Degree', codes: [['140.15', '140', '140.15']], href: YPD + 'article140.php#p140.15', cls: 'A Misdemeanor' },
-    { img: 'shield-harassment', title: 'Harassment 1st Degree', codes: [['240.25', '240', '240.25']], href: YPD + 'article240.php#p240.25', cls: 'B Misdemeanor', note: 'Poster reads "240.00"; the text shown is PL 240.25.' },
-    { img: 'shield-assault', title: 'Assault 3rd Degree', codes: [['120.00', '120', '120.00']], href: YPD + 'article120.php#p120.00', cls: 'A Misdemeanor' },
-    { img: 'shield-sexmisconduct', title: 'Sexual Misconduct', codes: [['130.20', '130', '130.20']], href: YPD + 'article130.php#p130.20', cls: 'A Misdemeanor' },
-    { img: 'shield-resisting', title: 'Resisting Arrest', codes: [['205.30', '205', '205.30']], href: YPD + 'article205.php#p205.30', cls: 'A Misdemeanor' },
-    { img: 'shield-disorderly', title: 'Disorderly Conduct', codes: [['240.20', '240', '240.20']], href: YPD + 'article240.php#p240.20', cls: 'Violation' },
-    { img: 'shield-marihuana5', title: 'Crim. Possession of Marihuana 5th', codes: [['221.10', '221', '221.10']], href: YPD + 'article221.php#p221.10', cls: 'B Misdemeanor' },
-    { img: 'shield-marihuanaguide', title: 'Marihuana Offenses Guide', codes: [], href: YPD + 'marijuana-offenses.php', cls: 'Guide' }
+    { parts: [['Petit Larceny', '155.25'], ['Grand Larceny 4th', '155.30']], title: 'Petit Larceny / Grand Larceny 4th', codes: [['155.25', '155', '155.25'], ['155.30', '155', '155.30']], href: YPD + 'article155.php#p155.25', cls: 'A Misd. / E Felony' },
+    { parts: [['Criminal Mischief 4th Degree', '145.00']], title: 'Criminal Mischief 4th Degree', codes: [['145.00', '145', '145.00']], href: YPD + 'article145.php#p145.00', cls: 'A Misdemeanor' },
+    { parts: [['Trespass', '140.05']], title: 'Trespass', codes: [['140.05', '140', '140.05']], href: YPD + 'article140.php#p140.05', cls: 'Violation' },
+    { parts: [['Criminal Trespass 2nd Degree', '140.15']], title: 'Criminal Trespass 2nd Degree', codes: [['140.15', '140', '140.15']], href: YPD + 'article140.php#p140.15', cls: 'A Misdemeanor' },
+    { parts: [['Harassment 1st Degree', '240.25']], title: 'Harassment 1st Degree', codes: [['240.25', '240', '240.25']], href: YPD + 'article240.php#p240.25', cls: 'B Misdemeanor' },
+    { parts: [['Assault 3rd Degree', '120.00']], title: 'Assault 3rd Degree', codes: [['120.00', '120', '120.00']], href: YPD + 'article120.php#p120.00', cls: 'A Misdemeanor' },
+    { parts: [['Sexual Misconduct', '130.20']], title: 'Sexual Misconduct', codes: [['130.20', '130', '130.20']], href: YPD + 'article130.php#p130.20', cls: 'A Misdemeanor' },
+    { parts: [['Resisting Arrest', '205.30']], title: 'Resisting Arrest', codes: [['205.30', '205', '205.30']], href: YPD + 'article205.php#p205.30', cls: 'A Misdemeanor' },
+    { parts: [['Disorderly Conduct', '240.20']], title: 'Disorderly Conduct', codes: [['240.20', '240', '240.20']], href: YPD + 'article240.php#p240.20', cls: 'Violation' },
+    { parts: [['Criminal Possession of Marihuana 5th', '221.10']], title: 'Criminal Possession of Marihuana 5th', codes: [['221.10', '221', '221.10']], href: YPD + 'article221.php#p221.10', cls: 'B Misdemeanor' },
+    { parts: [['Marihuana Offenses Guide', 'Art. 221 / 222']], title: 'Marihuana Offenses Guide', codes: [], href: YPD + 'marijuana-offenses.php', cls: 'Guide' }
   ],
 
   vip: [
