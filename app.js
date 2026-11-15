@@ -141,6 +141,54 @@
   $('#bldQ').addEventListener('input', e => renderBuildings(e.target.value));
   $('#outside').innerHTML = C.outsideContacts.map(c => `<div class="bld"><div class="bld-main"><b class="bld-name">${esc(c[0])}</b><span class="bld-sector">${esc(c[1])}</span></div><div class="bld-ext"><span class="ext-k">Phone</span>${extHtml(c[2])}</div></div>`).join('');
 
+  /* ---------- C-Summons return dates ---------- */
+  const HOL = new Set(C.courtHolidays); const DAY = 864e5;
+  const isoD = d => d.toISOString().slice(0, 10);
+  const addD = (d, n) => new Date(d.getTime() + n * DAY);
+  const isCourt = d => { const w = d.getUTCDay(); return w >= 2 && w <= 5 && !HOL.has(isoD(d)); };
+  const OFF = [18, 18, 17, 20, 20, 19, 19]; // Sun..Sat issue weekday -> days to return date
+  function rdReturn(issue) {
+    let t = addD(issue, OFF[issue.getUTCDay()]);
+    const tue = addD(t, 2 - t.getUTCDay());
+    [0, 1, 2, 3].map(i => addD(tue, i)).filter(d => HOL.has(isoD(d))).forEach(h => {
+      if (h.getUTCDay() === 2) { if (isoD(t) === isoD(h)) t = addD(t, 1); }
+      else if (t.getUTCDay() >= 3 && t <= h) t = addD(t, -1);
+    });
+    for (let g = 0; !isCourt(t) && g < 10; g++) t = addD(t, 1);
+    return t;
+  }
+  function rdTrial(ret) { let t = addD(ret, 14); for (let g = 0; !isCourt(t) && g < 10; g++) t = addD(t, -1); return t; }
+  const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const rdMD = d => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  const longD = d => `${WD[d.getUTCDay()]}, ${MN[d.getUTCMonth()].slice(0, 3)} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+  const RD_MIN = Date.UTC(2026, 10, 1), RD_MAX = Date.UTC(2027, 11, 31);
+  const todayUTC = () => { const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); };
+  const clampD = d => new Date(Math.min(RD_MAX, Math.max(RD_MIN, d.getTime())));
+  let rdSel = clampD(todayUTC()), rdMonth = [rdSel.getUTCFullYear(), rdSel.getUTCMonth()];
+  function rdRender() {
+    $('#rdIssue').value = isoD(rdSel);
+    const r = rdReturn(rdSel), t = rdTrial(r);
+    $('#rdOut').innerHTML = `<div class="rd-res rd-ret"><span class="rd-k">Return date</span><b class="rd-v">${longD(r)}</b></div><div class="rd-res"><span class="rd-k">Trial date</span><b class="rd-v">${longD(t)}</b></div><p class="rd-sub">Issued ${longD(rdSel)} · ${Math.round((r - rdSel) / DAY)} days to return</p>`;
+    const [y, m] = rdMonth; $('#rdMonthTitle').textContent = `${MN[m]} ${y}`;
+    const days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); const tIso = isoD(todayUTC()); let rows = '';
+    for (let i = 1; i <= days; i++) {
+      const d = new Date(Date.UTC(y, m, i)); if (d < RD_MIN || d > RD_MAX) continue; const rr = rdReturn(d), tt = rdTrial(rr); const di = isoD(d);
+      rows += `<tr class="${di === isoD(rdSel) ? 'sel' : ''}${di === tIso ? ' today' : ''}" data-rd="${di}"><td>${WD[d.getUTCDay()]}</td><td>${rdMD(d)}</td><td>${WD[rr.getUTCDay()]}</td><td><b>${rdMD(rr)}</b></td><td>${WD[tt.getUTCDay()]}</td><td>${rdMD(tt)}</td></tr>`;
+    }
+    $('#rdRows').innerHTML = rows;
+    $('#rdMPrev').disabled = Date.UTC(y, m, 1) <= RD_MIN; $('#rdMNext').disabled = Date.UTC(y, m + 1, 1) > RD_MAX;
+  }
+  const rdSet = d => { rdSel = clampD(d); rdMonth = [rdSel.getUTCFullYear(), rdSel.getUTCMonth()]; rdRender(); };
+  $('#rdIssue').addEventListener('change', e => { const v = e.target.value; if (v) rdSet(new Date(v + 'T00:00:00Z')); });
+  $('#rdToday').addEventListener('click', () => rdSet(todayUTC()));
+  $('#rdPrev').addEventListener('click', () => rdSet(addD(rdSel, -1)));
+  $('#rdNext').addEventListener('click', () => rdSet(addD(rdSel, 1)));
+  $('#rdMPrev').addEventListener('click', () => { let [y, m] = rdMonth; m--; if (m < 0) { m = 11; y--; } rdMonth = [y, m]; rdRender(); });
+  $('#rdMNext').addEventListener('click', () => { let [y, m] = rdMonth; m++; if (m > 11) { m = 0; y++; } rdMonth = [y, m]; rdRender(); });
+  $('#rdRows').addEventListener('click', e => { const tr = e.target.closest('[data-rd]'); if (tr) { rdSel = new Date(tr.dataset.rd + 'T00:00:00Z'); rdRender(); $('#rdOut').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } });
+  rdRender();
+
   /* ---------- Club rooms ---------- */
   const CR = C.clubRooms; const roomId = c => 'room-' + c.replace(/\W+/g, '');
   function renderRooms(q = '') {
@@ -322,7 +370,7 @@
     if (pho.length) groups.push(['Phonetic alphabet', pho.map(w => `<button class="sp-item" data-jump="phonetic"><span class="k">${w[0]}</span><span class="v">${w}</span></button>`)]);
     const nar = C.narratives.filter(n => m(n[0]) || (ql.length > 3 && n[1].toLowerCase().includes(ql)));
     if (nar.length) groups.push(['Narrative templates', nar.map(n => `<button class="sp-item" data-jump="reports"><span class="v">${esc(n[0])}<small>${esc(n[1].slice(0, 90))}…</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);

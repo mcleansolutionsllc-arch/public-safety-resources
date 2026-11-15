@@ -273,4 +273,7 @@ window.CONTENT = {
     ['MTA Metro North Police', 'Non-emergency', '914-668-3000'],
     ['NYPD 40th Pct Desk', 'Precinct desk', '718-402-2279']
   ];
+
+  // NYS Unified Court System holidays (Tue–Fri ones affect return/trial dates)
+  window.CONTENT.courtHolidays = ['2026-11-03','2026-11-11','2026-11-26','2026-12-25','2027-01-01','2027-01-18','2027-02-12','2027-02-15','2027-05-31','2027-06-18','2027-07-05','2027-09-06','2027-10-11','2027-11-02','2027-11-11','2027-11-25','2027-12-24','2027-12-31','2028-02-11'];
 })();

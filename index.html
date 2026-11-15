@@ -52,6 +52,7 @@
     <a href="#clubs" class="chip">Club Rooms</a>
     <a href="#uniform" class="chip">Uniform</a>
     <a href="#summons" class="chip">Summons</a>
+    <a href="#returndates" class="chip">Return Dates</a>
     <a href="#peel" class="chip">Peel's Principles</a>
   </nav>
 </header>
@@ -231,6 +232,28 @@
       <p class="lede">Completed sample CRC-3206 for reference (Admin Code 16-118(6), urination in public).</p>
     </div>
     <figure class="doc"><button class="doc-btn" data-view="summons-sample" data-cap="Sample Complaint/Information CRC-3206"><img loading="lazy" src="./img/summons-sample.jpg" alt="Sample completed Complaint/Information summons form"><span class="doc-tag">Tap to zoom</span></button></figure>
+  </section>
+
+  <section id="returndates" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">Bronx County C-Summons</p>
+      <h2>Return Date Schedule</h2>
+      <p class="lede">Pick the issue date to get the return date and trial date. Bronx Criminal Court, 215 E 161st Street, Bronx, NY 10451. <b>No Mondays.</b></p>
+    </div>
+    <div class="rd-card">
+      <label class="rd-pick" for="rdIssue"><span>Issue date</span>
+        <input id="rdIssue" type="date" min="2026-11-01" max="2027-12-31">
+      </label>
+      <div class="rd-btns"><button class="mini" id="rdToday" type="button">Today</button><button class="mini" id="rdPrev" type="button" aria-label="Previous day">&larr; Day</button><button class="mini" id="rdNext" type="button" aria-label="Next day">Day &rarr;</button></div>
+      <div id="rdOut" class="rd-out" aria-live="polite"></div>
+    </div>
+    <div class="rd-month-head">
+      <h3 id="rdMonthTitle">Month</h3>
+      <div class="rd-btns"><button class="mini" id="rdMPrev" type="button" aria-label="Previous month">&larr;</button><button class="mini" id="rdMNext" type="button" aria-label="Next month">&rarr;</button></div>
+    </div>
+    <div class="rd-table-wrap"><table class="rd-table"><thead><tr><th colspan="2">Issue Date</th><th colspan="2">Return Date</th><th colspan="2">Trial Date</th></tr></thead><tbody id="rdRows"></tbody></table></div>
+    <p class="rd-note">Projected from the posted November 2025 schedule and the 2026–2027 NYS court holiday calendar. That pattern reproduces 28 of 30 return dates and all 30 trial dates on the posted sheet. Always check against the current posted schedule. Summons Clerk: <a href="tel:7186182480">(718) 618-2480</a>.</p>
+    <figure class="doc narrow"><button class="doc-btn" data-view="return-dates-nov2025" data-cap="Bronx County C-Summons Return Date Schedule, November 2025 (posted sheet)"><img loading="lazy" src="./img/return-dates-nov2025.jpg" alt="Posted Bronx County C-Summons Return Date Schedule for November 2025"><span class="doc-tag">Posted sheet · Nov 2025</span></button></figure>
   </section>
 
   <section id="peel" class="sec">
