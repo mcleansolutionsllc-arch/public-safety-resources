@@ -125,6 +125,22 @@
   });
   selectTour(activeTour);
 
+  /* ---------- Buildings ---------- */
+  const BL = C.buildings; const bldId = b => 'bld-' + b.replace(/\W+/g, '');
+  const telHref = n => n.replace(/\D/g, '').length >= 10 ? `tel:${n.replace(/\D/g, '')}` : '';
+  const extHtml = x => { const h = telHref(x); return h ? `<a class="ext-n ext-full" href="${h}">${esc(x)}</a>` : `<span class="ext-n">${esc(x)}</span>`; };
+  function renderBuildings(q = '') {
+    q = q.trim().toLowerCase();
+    const list = BL.filter(b => !q || [b[0], b[1], b[2], b[3], ...b[4]].join(' ').toLowerCase().includes(q));
+    $('#bldList').innerHTML = list.map(b => `<div class="bld" id="${bldId(b[0])}">
+      <div class="bld-main"><b class="bld-name">${esc(b[0])}</b><span class="bld-sector">Sector <b>${esc(b[1])}</b></span><span class="bld-addr">${esc(b[2])}<br>${esc(b[3])}</span></div>
+      <div class="bld-ext">${b[4].length ? `<span class="ext-k">${b[4].some(telHref) ? 'Phone' : 'Ext.'}</span>${b[4].map(extHtml).join('<span class="ext-sep">/</span>')}` : '<span class="ext-k">Ext.</span><span class="ext-n ext-none">None listed</span>'}</div>
+    </div>`).join('') || '<p class="meta">No buildings match.</p>';
+  }
+  renderBuildings();
+  $('#bldQ').addEventListener('input', e => renderBuildings(e.target.value));
+  $('#outside').innerHTML = C.outsideContacts.map(c => `<div class="bld"><div class="bld-main"><b class="bld-name">${esc(c[0])}</b><span class="bld-sector">${esc(c[1])}</span></div><div class="bld-ext"><span class="ext-k">Phone</span>${extHtml(c[2])}</div></div>`).join('');
+
   /* ---------- Club rooms ---------- */
   const CR = C.clubRooms; const roomId = c => 'room-' + c.replace(/\W+/g, '');
   function renderRooms(q = '') {
@@ -295,6 +311,8 @@
     const people = [...C.vip.map(v => [...v]), ...C.keyStaff.map(v => [...v, 0])].filter(v => (jh && v[3] === +jh[3]) || (!jh && m(v[1], v[2], v[3] ? 'jagger hall ' + v[3] : '')));
     if (people.length) groups.push(['Jagger Hall & key personnel', people.slice(0, 10).map(v => `<button class="sp-item" data-view="vip${v[0]}" data-cap="${esc(v[1])}${v[3] ? ' · Jagger Hall ' + v[3] : ''}"><img src="./img/vip${v[0]}.jpg" alt=""><span class="v">${esc(v[1])}<small>${esc(v[2])}</small></span>${v[3] ? `<span class="k">JH ${v[3]}</span>` : ''}</button>`)]);
     const rooms = CR.floors.flatMap(f => f[1]).filter(r => m(r[0], r[1]) || r[0].replace(/\W/g, '').toLowerCase() === qn.replace(/\W/g, ''));
+    const blds = BL.filter(b => m(b[0], b[1], b[2], ...b[4]));
+    if (blds.length) groups.push(['Buildings', blds.slice(0, 8).map(b => `<button class="sp-item" data-jump="${bldId(b[0])}"><span class="k">${esc(b[4].join('/') || '—')}</span><span class="v"><b>${esc(b[0])}</b><small>Sector ${esc(b[1])} · ${esc(b[2])}</small></span></button>`)]);
     if (rooms.length) groups.push(['C-Building club rooms', rooms.slice(0, 8).map(r => `<button class="sp-item" data-jump="${roomId(r[0])}"><span class="k">${esc(r[0])}</span><span class="v">${esc(r[1])}</span></button>`)]);
     if (ql.length > 2) {
       const staff = []; TM.forEach(t => t.groups.forEach(g => g.rows.forEach(r => { if (r[0].toLowerCase().includes(ql) && !/overtime|^sector|dreamland officer|firewatch|meal relief/i.test(r[0])) staff.push([t, r]); })));
@@ -304,7 +322,7 @@
     if (pho.length) groups.push(['Phonetic alphabet', pho.map(w => `<button class="sp-item" data-jump="phonetic"><span class="k">${w[0]}</span><span class="v">${w}</span></button>`)]);
     const nar = C.narratives.filter(n => m(n[0]) || (ql.length > 3 && n[1].toLowerCase().includes(ql)));
     if (nar.length) groups.push(['Narrative templates', nar.map(n => `<button class="sp-item" data-jump="reports"><span class="v">${esc(n[0])}<small>${esc(n[1].slice(0, 90))}…</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);

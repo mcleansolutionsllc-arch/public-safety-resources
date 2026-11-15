@@ -48,6 +48,7 @@
     <a href="#phonetic" class="chip">Phonetic</a>
     <a href="#reports" class="chip">Report Writing</a>
     <a href="#tours" class="chip">Tour Master</a>
+    <a href="#buildings" class="chip">Buildings</a>
     <a href="#clubs" class="chip">Club Rooms</a>
     <a href="#uniform" class="chip">Uniform</a>
     <a href="#summons" class="chip">Summons</a>
@@ -184,6 +185,21 @@
     </div>
     <div class="tabs" role="tablist" aria-label="Tour shifts" id="tourTabs"></div>
     <div id="tourPanel" role="tabpanel"></div>
+  </section>
+
+  <section id="buildings" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">Sectors &amp; extensions</p>
+      <h2>Campus Buildings</h2>
+      <p class="lede">Each building's radio sector, address and phone extension.</p>
+    </div>
+    <label class="search search-lg" for="bldQ">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="bldQ" type="search" autocomplete="off" placeholder="Building, sector or ext." aria-label="Filter buildings">
+    </label>
+    <div id="bldList" class="bld-list"></div>
+    <h3 class="bld-sub">Outside contacts</h3>
+    <div id="outside" class="bld-list"></div>
   </section>
 
   <section id="clubs" class="sec">

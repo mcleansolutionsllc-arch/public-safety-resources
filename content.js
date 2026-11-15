@@ -255,4 +255,22 @@ window.CONTENT = {
       ]]
     ]
   };
+  window.CONTENT.buildings = [
+    // [building, sector, street, city, extension(s)]
+    ['A Building', 'Adam', '475 Grand Concourse', 'Bronx, NY 10451', ['3901']],
+    ['B Building', 'Boy', '500 Grand Concourse', 'Bronx, NY 10451', ['7034']],
+    ['C Building', 'Charlie', '450 Grand Concourse', 'Bronx, NY 10451', ['7033']],
+    ['D Building', 'Savoy / David', '120 E. 149th Street', 'Bronx, NY 10451', ['3902']],
+    ['T-5 Trailer', 'Henry', '427 Walton Avenue', 'Bronx, NY 10451', ['3903']],
+    ['G Building', 'T-6 / Oscar', '135 East 146th Street', 'Bronx, NY 10451', ['7523']],
+    ['CUNY in the Heights', 'Queen', '5030 Broadway', 'New York, NY 10034', ['212-567-5930']],
+    ['Prow', 'Peter', '560 Exterior Street', 'Bronx, NY 10451', ['7017', '7018']],
+    ['C.L.I.P', 'Eddie', '590 Exterior Street', 'Bronx, NY 10451', ['7215']],
+    ['F Bldg / Incubator', 'Nora', '610 Exterior Street', 'Bronx, NY 10451', ['3904']],
+    ['M Building', 'Mary', '429 Grand Concourse', 'Bronx, NY 10451', ['3905']]
+  ];
+  window.CONTENT.outsideContacts = [
+    ['MTA Metro North Police', 'Non-emergency', '914-668-3000'],
+    ['NYPD 40th Pct Desk', 'Precinct desk', '718-402-2279']
+  ];
 })();
