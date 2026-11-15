@@ -191,8 +191,26 @@
   /* ---------- Field notes ---------- */
   const FN = C.fieldNotes;
   const fnStore = {};
+  /* Notified times/details persist across reloads: browser cache storage when available,
+     with the tab's window.name as a backup (survives reload in the same tab). */
+  const NK = 'psNotified1', NC = 'ps-notes', NU = './__notified.json';
+  const nKeep = k => k === 'nAg' || k.startsWith('n_');
+  const nMerge = saved => { if (!saved || typeof saved !== 'object') return false; let any = false; Object.keys(saved).forEach(id => { fnStore[id] = { ...saved[id], ...(fnStore[id] || {}) }; any = true; }); return any; };
+  const nPut = () => {
+    const out = {};
+    Object.keys(fnStore).forEach(id => { const o = {}; Object.keys(fnStore[id] || {}).forEach(k => { if (nKeep(k)) o[k] = fnStore[id][k]; }); if (Object.keys(o).length) out[id] = o; });
+    const j = JSON.stringify(out);
+    try { window.name = NK + ':' + j; } catch (e) {}
+    try { if (window.caches) caches.open(NC).then(c => c.put(NU, new Response(j, { headers: { 'Content-Type': 'application/json' } }))).catch(() => {}); } catch (e) {}
+  };
+  try { if (window.name.startsWith(NK + ':')) nMerge(JSON.parse(window.name.slice(NK.length + 1))); } catch (e) {}
+  try {
+    if (window.caches) caches.open(NC).then(c => c.match(NU)).then(r => r ? r.json() : null).then(saved => {
+      if (nMerge(saved) && typeof fnCur !== 'undefined' && fnCur && $('#fnPanel') && !$('#fnPanel').hidden) fnOpen(fnCur);
+    }).catch(() => {});
+  } catch (e) {}
   const fnLoad = id => ({ ...(fnStore[id] || {}) });
-  const fnSave = (id, v) => { fnStore[id] = v; };
+  const fnSave = (id, v) => { fnStore[id] = v; nPut(); };
   const fnHas = id => { const v = fnLoad(id); return Object.keys(v).some(k => k !== 'date' && v[k] && (!Array.isArray(v[k]) || v[k].length)); };
   const mil = t => t ? t.replace(':', '') + ' hrs' : '';
   const usDate = d => { if (!d) return ''; const [y, m, dd] = d.split('-'); return `${m}/${dd}/${y}`; };
@@ -227,6 +245,34 @@
     { k: 'oDisp', l: 'Final disposition', t: 'checks', o: ['Report taken', 'Individual advised', 'Referred for follow-up', 'Escorted from location', 'Turned over to NYPD', 'Arrested by NYPD'] },
     { k: 'oPrep', l: 'Prepared by (name / shield #)', ph: 'P.O. Smith #123' }
   ];
+  const fnAg = [
+    { id: 'SUP', name: 'Supervisor', full: 'Supervisor', f: [['name', 'Name / title', 'Sgt. Lopez'], ['shield', 'Shield #', '204']] },
+    { id: 'EMS', name: 'EMS', full: 'EMS', f: [['unit', 'Ambulance / unit #', '12A'], ['name', 'EMT / paramedic name(s)', 'EMT Rivera'], ['shield', 'Shield / ID #', '4521'], ['hosp', 'Hospital', 'Lincoln Hospital']] },
+    { id: 'NYPD', name: 'NYPD', full: 'NYPD', f: [['name', 'Officer name', 'P.O. Doe'], ['shield', 'Shield / badge #', '12345'], ['cmd', 'Command / precinct', '40 Pct'], ['rmp', 'RMP / car #', '4521'], ['ref', 'Complaint / incident #', 'optional']] },
+    { id: 'FDNY', name: 'FDNY', full: 'FDNY', f: [['unit', 'Engine / ladder #', 'Engine 50'], ['name', 'Officer in charge', 'Lt. Brown']] },
+    { id: 'OTH', name: 'Other agency', full: '', f: [['agency', 'Agency name', 'Con Edison'], ['name', 'Contact name', 'J. Smith'], ['shield', 'Badge / ID #', 'optional'], ['phone', 'Phone', 'optional']] }
+  ];
+  const fnTimes = [['tN', 'Notified'], ['t84', '10-84', 'Arrived'], ['t98', '10-98', 'Cleared']];
+  const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const agName = (a, v) => a.id === 'OTH' ? ((v[`n_OTH_agency`] || '').trim() || 'Other agency') : a.full;
+  function fnAgList(v) {
+    return fnAg.filter(a => (v.nAg || []).includes(a.id)).map(a => {
+      const g = k => (v[`n_${a.id}_${k}`] || '').trim();
+      const det = a.f.filter(([k]) => !(a.id === 'OTH' && k === 'agency')).map(([k, l]) => g(k) ? (k === 'shield' ? `#${g(k).replace(/^#/, '')}` : k === 'hosp' ? `hospital: ${g(k)}` : k === 'rmp' ? `RMP ${g(k)}` : k === 'ref' ? `incident # ${g(k)}` : k === 'phone' ? g(k) : k === 'unit' && a.id === 'EMS' ? `unit ${g(k)}` : g(k)) : '').filter(Boolean);
+      const times = fnTimes.map(([k, c, w]) => g(k) ? [c, w, mil(g(k))] : null);
+      return { a, name: agName(a, v), det, times, hosp: g('hosp') };
+    });
+  }
+  function fnAgSentence(x) {
+    const [n, a, c] = x.times;
+    const who = x.name + (x.det.length ? ` (${x.det.filter(d => !d.startsWith('hospital:')).join(', ')})` : '');
+    const parts = [];
+    if (n) parts.push(`was notified at ${n[2]}`); else parts.push('was notified');
+    if (a) parts.push(`arrived on scene (10-84) at ${a[2]}`);
+    if (c) parts.push(`cleared (10-98) at ${c[2]}`);
+    const last = parts.pop();
+    return `${who} ${parts.length ? parts.join(', ') + ' and ' : ''}${last}.` + (x.a.id === 'EMS' && x.hosp && !(FN.find(t => t.id === fnCur) || { fields: [] }).fields.some(f => f.k === 'hosp') ? ` EMS transported to ${x.hosp}.` : '');
+  }
   const fnDispTxt = { 'Report taken': 'A report was taken.', 'Individual advised': 'The individual was advised.', 'Referred for follow-up': 'The matter was referred for follow-up.', 'Escorted from location': 'The individual was escorted from the location.', 'Turned over to NYPD': 'The individual was turned over to NYPD.', 'Arrested by NYPD': 'The individual was arrested by NYPD.' };
   const fnContact = [
     { k: 'cName', l: 'Name', ph: 'Last, First' },
@@ -245,7 +291,7 @@
   function fnCompose(t, v) {
     const ph = l => `\u0001${l}\u0002`;
     const lab = k => { const f = [...fnCommon, ...t.fields, ...fnPerp, ...fnOfficer, ...fnContact].find(x => x.k === k); return f ? f.l.toLowerCase().replace(/\s*\(.*\)/, '') : k; };
-    const p = k => k === 'loc' ? (fnLoc(v) || ph(v.loc === 'Off campus' ? 'off-campus location' : 'location')) : k === 'aff' ? (v.aff ? `(${v.aff})` : ph('this campus/other CUNY')) : (v[k] && String(v[k]).trim()) ? String(v[k]).trim() : ph(lab(k));
+    const p = k => (k === 'hosp' && !(v.hosp || '').trim() && (v.n_EMS_hosp || '').trim()) ? v.n_EMS_hosp.trim() : k === 'loc' ? (fnLoc(v) || ph(v.loc === 'Off campus' ? 'off-campus location' : 'location')) : k === 'aff' ? (v.aff ? `(${v.aff})` : ph('this campus/other CUNY')) : (v[k] && String(v[k]).trim()) ? String(v[k]).trim() : ph(lab(k));
     const o = `At approximately ${v.time ? mil(v.time) : ph('time')} on ${v.date ? usDate(v.date) : ph('date')}, at ${p('loc')},`;
     let cls = t.code, extra = '';
     if (t.larceny || t.classify) { const L = t.larceny ? larcenyClass(v) : t.classify(v); cls = L.c; extra = L.why; }
@@ -270,12 +316,13 @@
     return a.join(' · ');
   }
   function fnRespText(v, p, force) {
-    const any = ['oNames', 'oCall', 'oActions'].some(k => (v[k] || '').trim()) || (v.oDisp || []).length;
+    const any = ['oNames', 'oCall', 'oActions'].some(k => (v[k] || '').trim()) || (v.oDisp || []).length || (v.nAg || []).length;
+    const ntf = fnAgList(v).map(fnAgSentence).join(' ');
     if (!any && !force) return '';
     const how = { 'call for service': 'responded to a call for service', 'officer observation': 'observed the incident while on patrol', 'walk-in report': 'received a walk-in report', 'alarm activation': 'responded to an alarm activation' }[v.oCall] || '\u0001responded to / observed\u0002';
     const acts = (v.oActions || '').trim();
     const d = (v.oDisp || []).map(x => fnDispTxt[x]).join(' ');
-    return `Public Safety Officer(s) ${p('oNames')} ${how} at ${p('loc')}.` + (acts ? ` Officers ${acts.replace(/^officers?\s+/i, '').replace(/\.$/, '')}.` : '') + (d ? ' ' + d : ' \u0001final disposition\u0002.') + ' No further incidents occurred.';
+    return `Public Safety Officer(s) ${p('oNames')} ${how} at ${p('loc')}.` + (acts ? ` Officers ${acts.replace(/^officers?\s+/i, '').replace(/\.$/, '')}.` : '') + (ntf ? ' ' + ntf : '') + (d ? ' ' + d : ' \u0001final disposition\u0002.') + ' No further incidents occurred.';
   }
   const fnPlain = s => s.replace(/\u0001([^\u0002]*)\u0002/g, '($1)');
   const fnHTML = s => esc(s).replace(/\u0001([^\u0002]*)\u0002/g, '<span class="fn-ph">($1)</span>');
@@ -308,12 +355,22 @@
         ${t.perp ? `<div class="fn-grp fn-perp${v.kUnk ? ' unk' : ''}"><h4>${t.id === 'weapon' || t.id === 'trespass' ? 'Subject' : 'Perpetrator'} information</h4>${fnPerp.filter(f => !(f.k === 'kAff' && t.fields.some(x => x.k === 'saff'))).map(f => fnField(t.id === 'weapon' || t.id === 'trespass' ? (f.k === 'kUnk' ? { ...f, l: 'Subject identity' } : f) : f, v)).join('')}<p class="fn-unk-note">${t.id === 'weapon' || t.id === 'trespass' ? 'Subject' : 'Perpetrator'} unknown — contact fields not required. Add a description if available.</p></div>` : ''}
         ${t.fields.some(f => f.k === 'gender') ? `<div class="fn-grp"><h4>${t.id === 'aided' ? 'Aided' : 'Complainant'} contact information</h4>${fnContact.map(f => fnField(f, v)).join('')}</div>` : ''}
         <div class="fn-grp"><h4>Officer response &amp; disposition</h4>${fnOfficer.map(f => fnField(f, v)).join('')}</div>
+        ${fnNotifiedHTML(v)}
         <div class="fn-grp"><h4>Additional notes</h4><div class="fn-f"><textarea data-k="notes" rows="3" aria-label="Additional notes" placeholder="Witnesses, cameras checked, officers on scene, follow-up…">${esc(v.notes || '')}</textarea></div></div>
       </form>
       <div class="fn-out"><div class="fn-out-h"><h4>Narrative</h4><small>Not saved — copy before you reload</small></div><pre id="fnText" class="fn-text"></pre>
         <div class="fn-actions"><button type="button" class="btn-p" data-fnact="report">Generate report</button><button type="button" class="mini" data-fnact="copy">Copy</button><button type="button" class="mini" data-fnact="clear">Clear</button></div></div>`;
     fnRender(t, v);
     if (scroll) requestAnimationFrame(() => { const y = p.getBoundingClientRect().top + scrollY - ($('.top').offsetHeight + 12); window.scrollTo({ top: y, behavior: 'smooth' }); });
+  }
+  function fnNotifiedHTML(v) {
+    const on = v.nAg || [];
+    return `<div class="fn-grp fn-ntf"><h4>Notified</h4><p class="fn-hint">Tap each party notified. Time buttons stamp the phone's current time; you can edit it after.</p>
+      <div class="fn-agtabs">${fnAg.map(a => `<label class="fn-agtab${on.includes(a.id) ? ' on' : ''}"><input type="checkbox" data-k="nAg" value="${a.id}"${on.includes(a.id) ? ' checked' : ''}>${esc(a.name)}</label>`).join('')}</div>
+      ${fnAg.map(a => `<div class="fn-agcard" data-ag="${a.id}"${on.includes(a.id) ? '' : ' hidden'}><h5>${esc(a.name)}</h5>
+        <div class="fn-stamps">${fnTimes.map(([k, c, w]) => { const key = `n_${a.id}_${k}`, val = v[key] || ''; return `<div class="fn-stamp${val ? ' set' : ''}"><button type="button" data-stamp="${key}"><b>${c}</b>${w ? `<small>${w}</small>` : ''}</button><input type="time" id="fn-${key}" data-k="${key}" value="${esc(val)}" aria-label="${esc(a.name + ' ' + c + ' time')}"></div>`; }).join('')}</div>
+        ${a.f.map(([k, l, ph]) => { const key = `n_${a.id}_${k}`; return `<div class="fn-f"><label for="fn-${key}">${esc(l)}</label><input id="fn-${key}" data-k="${key}" type="${k === 'phone' ? 'tel' : 'text'}" value="${esc(v[key] || '')}" placeholder="${esc(ph)}" autocomplete="off"></div>`; }).join('')}
+      </div>`).join('')}</div>`;
   }
   function fnRead(t) {
     const v = {}; const p = $('#fnPanel');
@@ -324,6 +381,10 @@
   }
   function fnRender(t, v) {
     const p = $('#fnPanel');
+    const ag = v.nAg || [];
+    $$('.fn-agcard', p).forEach(c => { c.hidden = !ag.includes(c.dataset.ag); });
+    $$('.fn-agtab', p).forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+    $$('.fn-stamp', p).forEach(st => st.classList.toggle('set', !!st.querySelector('input').value));
     const unk = !!v.kUnk, pg = $('.fn-perp', p);
     if (pg) { pg.classList.toggle('unk', unk); fnPerp.filter(f => f.pc).forEach(f => { const el = $(`.fn-f[data-k="${f.k}"]`, pg); if (!el) return; el.classList.toggle('off', unk); $$('input, button', el).forEach(i => { i.disabled = unk; }); }); }
     [...fnCommon, ...t.fields].forEach(f => { if (f.show) { const el = $(`.fn-f[data-k="${f.k}"]`, p); if (el) el.hidden = !f.show(v); } });
@@ -339,13 +400,15 @@
   $('#fnPanel').addEventListener('click', e => {
     const o = e.target.closest('.fn-opt');
     if (o) { const on = o.classList.contains('on'); $$(`.fn-opt[data-k="${o.dataset.k}"]`, $('#fnPanel')).forEach(x => { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); }); if (!on) { o.classList.add('on'); o.setAttribute('aria-pressed', 'true'); } fnUpd(); fnGrid(); return; }
+    const st = e.target.closest('[data-stamp]');
+    if (st) { const inp = document.getElementById('fn-' + st.dataset.stamp); inp.value = nowHM(); fnUpd(); toast(`${st.querySelector('b').textContent} ${mil(inp.value)} saved`); return; }
     if (e.target.closest('[data-fnclose]')) { fnCur = null; $('#fnPanel').hidden = true; fnGrid(); return; }
     const a = e.target.closest('[data-fnact]'); if (!a) return;
     const txt = fnPlain($('#fnPanel')._raw || '');
     if (a.dataset.fnact === 'report') { fnReportOpen(); return; }
     if (a.dataset.fnact === 'copy') copy(txt, 'Narrative copied');
     else if (a.dataset.fnact === 'share') navigator.share({ title: 'Field notes', text: txt }).catch(() => {});
-    else if (a.dataset.fnact === 'clear') { if (confirm('Clear this draft?')) { delete fnStore[fnCur]; fnOpen(fnCur); toast('Draft cleared'); } }
+    else if (a.dataset.fnact === 'clear') { if (confirm('Clear this draft?')) { delete fnStore[fnCur]; nPut(); fnOpen(fnCur); toast('Draft cleared'); } }
   });
   $('#fnPanel').addEventListener('input', () => fnGrid(), { passive: true });
   window.fnOpenType = id => fnOpen(id, true);
@@ -363,6 +426,8 @@
     if (t.perp) secs.push([t.id === 'weapon' || t.id === 'trespass' ? 'Contact information — Subject' : 'Contact information — Perpetrator', v.kUnk ? [['Identity', 'Unknown'], ...(has('saff') ? [['Status', val('srole', 'subject status')], ['College affiliation', val('saff', 'subject affiliation')]] : []), ['Description', val('sDesc', 'description')]] :
       [['Name', val('kName', 'name')], ...(has('srole') ? [['Status', val('srole', 'subject status')]] : []), ['College affiliation', has('saff') ? val('saff', 'subject affiliation') : val('kAff', 'affiliation')], ['Address', val('kAddr', 'address')], ['Phone', val('kPhone', 'phone')], ['Description', val('sDesc', 'description')]]]);
     if (has('pDesc')) secs.push(['Property', [['Description', val('pDesc', 'property description')], ['Approx. value', v.value ? '$' + String(v.value).replace(/^\$/, '') : ph('value')]]]);
+    const al = fnAgList(v);
+    if (al.length) secs.push(['Notifications', al.map(x => [x.name, [x.det.join(' · '), x.times.filter(Boolean).map(t => `${t[0]} ${t[2]}`).join(' · ')].filter(Boolean).join(' — ') || 'Notified'])]);
     const nar = [r.nar, fnRespText(v, p, true)];
     if ((v.notes || '').trim()) nar.push(v.notes.trim());
     const now = new Date();
