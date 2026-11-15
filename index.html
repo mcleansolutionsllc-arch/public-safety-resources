@@ -47,12 +47,14 @@
     <a href="#radio" class="chip">Radio Codes</a>
     <a href="#phonetic" class="chip">Phonetic</a>
     <a href="#reports" class="chip">Report Writing</a>
+    <a href="#fieldnotes" class="chip">Field Notes</a>
     <a href="#tours" class="chip">Tour Master</a>
     <a href="#buildings" class="chip">Buildings</a>
     <a href="#clubs" class="chip">Club Rooms</a>
     <a href="#uniform" class="chip">Uniform</a>
     <a href="#summons" class="chip">Summons</a>
     <a href="#returndates" class="chip">Return Dates</a>
+    <a href="#henderson" class="chip">Henderson Rules</a>
     <a href="#peel" class="chip">Peel's Principles</a>
   </nav>
 </header>
@@ -168,6 +170,16 @@
     <div class="acc" id="narratives"></div>
   </section>
 
+  <section id="fieldnotes" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">From the narrative templates</p>
+      <h2>Field Notes</h2>
+      <p class="lede">Tap an incident type, fill in what you have, and the narrative writes itself. Copy it into your report when you're done.</p>
+    </div>
+    <div class="fn-grid" id="fnGrid" role="tablist" aria-label="Incident type"></div>
+    <div id="fnPanel" class="fn-panel" hidden></div>
+  </section>
+
   <section id="tours" class="sec">
     <div class="sec-head">
       <p class="eyebrow">Staffing</p>
@@ -242,6 +254,24 @@
     </div>
     <div class="rd-table-wrap"><table class="rd-table"><thead><tr><th colspan="2">Issue Date</th><th colspan="2">Return Date</th><th colspan="2">Trial Date</th></tr></thead><tbody id="rdRows"></tbody></table></div>
     <p class="rd-note">Projected from the posted November 2025 schedule and the 2026–2027 NYS court holiday calendar. That pattern reproduces 28 of 30 return dates and all 30 trial dates on the posted sheet. Always check against the current posted schedule. Summons Clerk: <a href="tel:7186182480">(718) 618-2480</a>.</p>
+  </section>
+
+  <section id="henderson" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">CUNY · Education Law Article 129-A</p>
+      <h2>Henderson Rules</h2>
+      <p class="lede">Rules and Regulations for the Maintenance of Public Order. Tap a rule to read it in full.</p>
+    </div>
+    <label class="search search-lg" for="hrQ">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="hrQ" type="search" autocomplete="off" placeholder="Filter rules: ID, weapons, alcohol…" aria-label="Filter Henderson Rules">
+    </label>
+    <div id="hrRules" class="hr-list"></div>
+    <h3 class="sub">Penalties</h3>
+    <div id="hrPen" class="hr-pen"></div>
+    <h3 class="sub">Sanctions defined</h3>
+    <div id="hrSan" class="hr-san"></div>
+    <p class="rd-note" id="hrSrc"></p>
   </section>
 
   <section id="peel" class="sec">

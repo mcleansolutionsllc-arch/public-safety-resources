@@ -188,6 +188,148 @@
   $('#rdRows').addEventListener('click', e => { const tr = e.target.closest('[data-rd]'); if (tr) { rdSel = new Date(tr.dataset.rd + 'T00:00:00Z'); rdRender(); $('#rdOut').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } });
   rdRender();
 
+  /* ---------- Field notes ---------- */
+  const FN = C.fieldNotes;
+  const fnStore = {};
+  const fnLoad = id => ({ ...(fnStore[id] || {}) });
+  const fnSave = (id, v) => { fnStore[id] = v; };
+  const fnHas = id => { const v = fnLoad(id); return Object.keys(v).some(k => k !== 'date' && v[k] && (!Array.isArray(v[k]) || v[k].length)); };
+  const mil = t => t ? t.replace(':', '') + ' hrs' : '';
+  const usDate = d => { if (!d) return ''; const [y, m, dd] = d.split('-'); return `${m}/${dd}/${y}`; };
+  const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const fnCommon = [
+    { k: 'date', l: 'Date of occurrence', t: 'date', half: 1 },
+    { k: 'time', l: 'Time of occurrence', t: 'time', half: 1 },
+    { k: 'rtime', l: 'Report time', t: 'time', half: 1 },
+    { k: 'loc', l: 'Location', t: 'bsel', full: 1 },
+    { k: 'locDet', l: 'Floor / room (optional)', ph: '3rd floor, room B-301', full: 1, show: v => v.loc && v.loc !== 'Off campus' },
+    { k: 'locOff', l: 'Off-campus location', ph: 'E. 149th St & Grand Concourse', full: 1, show: v => v.loc === 'Off campus' }
+  ];
+  const fnLocOpts = () => [...C.buildings.map(b => b[0]), 'Off campus'];
+  const fnLoc = (v, addr) => {
+    if (!v.loc) return '';
+    if (v.loc === 'Off campus') return (v.locOff || '').trim() ? v.locOff.trim() : '';
+    const b = C.buildings.find(x => x[0] === v.loc);
+    return v.loc + (addr && b ? ` (${b[2]})` : '') + ((v.locDet || '').trim() ? ', ' + v.locDet.trim() : '');
+  };
+  const fnContact = [
+    { k: 'cName', l: 'Name', ph: 'Last, First' },
+    { k: 'cPhone', l: 'Phone', t: 'tel', ph: '718-555-0123' },
+    { k: 'cAddr', l: 'Address', ph: 'Street, City, ZIP' }
+  ];
+  let fnCur = null;
+  function larcenyClass(v) {
+    const val = parseFloat(String(v.value || '').replace(/[^\d.]/g, ''));
+    const gl = v.gl || [];
+    const reasons = [];
+    if (val > 1000) reasons.push('value over $1,000');
+    gl.forEach(g => reasons.push(g.toLowerCase()));
+    return reasons.length ? { c: C.larcenyCodes.grand, why: reasons.join(', ') } : { c: C.larcenyCodes.petit, why: isNaN(val) ? 'no value entered yet; $1,000 or less is Petit' : 'value $1,000 or less, no grand factor' };
+  }
+  function fnCompose(t, v) {
+    const ph = l => `\u0001${l}\u0002`;
+    const lab = k => { const f = [...fnCommon, ...t.fields].find(x => x.k === k); return f ? f.l.toLowerCase().replace(/\s*\(.*\)/, '') : k; };
+    const p = k => k === 'loc' ? (fnLoc(v) || ph(v.loc === 'Off campus' ? 'off-campus location' : 'location')) : k === 'aff' ? (v.aff ? `(${v.aff})` : ph('this campus/other CUNY')) : (v[k] && String(v[k]).trim()) ? String(v[k]).trim() : ph(lab(k));
+    const o = `At approximately ${v.time ? mil(v.time) : ph('time')} on ${v.date ? usDate(v.date) : ph('date')}, at ${p('loc')},`;
+    let cls = t.code, extra = '';
+    if (t.larceny || t.classify) { const L = t.larceny ? larcenyClass(v) : t.classify(v); cls = L.c; extra = L.why; }
+    const out = [];
+    out.push(`FIELD NOTES — ${t.name.toUpperCase()}${cls ? ` (PL ${cls[0]} ${cls[1]}, ${cls[2]})` : ''}`);
+    out.push(`Occurred: ${v.date ? usDate(v.date) : ph('date')} at ${v.time ? mil(v.time) : ph('time')}  ·  Reported: ${v.rtime ? mil(v.rtime) : ph('report time')}`);
+    out.push(`Location: ${fnLoc(v, 1) || ph(v.loc === 'Off campus' ? 'off-campus location' : 'location')}`);
+    const ct = [v.cName, v.cPhone, v.cAddr].filter(x => x && x.trim());
+    if (ct.length) out.push(`Complainant: ${ct.join(' · ')}`);
+    out.push('', t.text(v, p, o));
+    if ((v.pDesc || v.value) && t.fields.some(f => f.k === 'pDesc')) out.push('', `Property: ${p('pDesc')}${v.value ? ` — approx. value $${String(v.value).replace(/^\$/, '')}` : ''}`);
+    if (v.sDesc) out.push(`Suspect: ${v.sDesc.trim()}`);
+    if (v.notes && v.notes.trim()) out.push('', `Notes: ${v.notes.trim()}`);
+    return { raw: out.join('\n'), cls, extra };
+  }
+  const fnPlain = s => s.replace(/\u0001([^\u0002]*)\u0002/g, '($1)');
+  const fnHTML = s => esc(s).replace(/\u0001([^\u0002]*)\u0002/g, '<span class="fn-ph">($1)</span>');
+  function fnField(f, v) {
+    const id = 'fn-' + f.k, val = v[f.k];
+    if (f.t === 'seg') return `<fieldset class="fn-f fn-seg-wrap" data-k="${f.k}"><legend>${esc(f.l)}</legend><div class="fn-seg">${f.o.map(o => `<button type="button" class="fn-opt${val === o ? ' on' : ''}" data-k="${f.k}" data-v="${esc(o)}" aria-pressed="${val === o}">${esc(o)}</button>`).join('')}</div></fieldset>`;
+    if (f.t === 'checks') return `<fieldset class="fn-f" data-k="${f.k}"><legend>${esc(f.l)}</legend><div class="fn-checks">${f.o.map(o => `<label class="fn-chk"><input type="checkbox" data-k="${f.k}" value="${esc(o)}"${(val || []).includes(o) ? ' checked' : ''}> ${esc(o)}</label>`).join('')}</div></fieldset>`;
+    const lab = `<label for="${id}">${esc(f.l)}</label>`;
+    if (f.t === 'bsel') return `<div class="fn-f full" data-k="${f.k}">${lab}<select id="${id}" data-k="${f.k}"><option value="">Select a building or off campus…</option>${fnLocOpts().map(o => `<option${val === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
+    if (f.t === 'area') return `<div class="fn-f" data-k="${f.k}">${lab}<textarea id="${id}" data-k="${f.k}" rows="3" placeholder="${esc(f.ph || '')}">${esc(val || '')}</textarea></div>`;
+    const type = f.t === 'num' ? 'text" inputmode="decimal' : (f.t || 'text');
+    return `<div class="fn-f${f.half ? ' half' : ''}${f.full ? ' full' : ''}" data-k="${f.k}">${lab}<input id="${id}" type="${type}" data-k="${f.k}" value="${esc(val || '')}" placeholder="${esc(f.ph || '')}" autocomplete="off"></div>`;
+  }
+  function fnGrid() {
+    $('#fnGrid').innerHTML = FN.map(t => {
+      const c = t.larceny ? 'PL 155.25 / 155.30' : t.code ? 'PL ' + t.code[0] : 'Narrative';
+      return `<button type="button" class="fn-btn${fnCur === t.id ? ' on' : ''}" data-fn="${t.id}" role="tab" aria-selected="${fnCur === t.id}"><b>${esc(t.name)}</b><small>${esc(t.sub || c)}</small>${fnHas(t.id) ? '<i class="fn-dot" title="Draft saved"></i>' : ''}</button>`;
+    }).join('');
+  }
+  function fnOpen(id, scroll) {
+    const t = FN.find(x => x.id === id); if (!t) return;
+    fnCur = id; fnGrid();
+    const v = fnLoad(id); if (!v.date) v.date = todayISO();
+    const p = $('#fnPanel'); p.hidden = false;
+    p.innerHTML = `<div class="fn-head"><div><h3>${esc(t.name)}</h3>${t.note ? `<p>${esc(t.note)}</p>` : ''}${t.draft ? '<p class="fn-draft">Draft wording — check against your department template.</p>' : ''}</div><button type="button" class="mini" data-fnclose>Close</button></div>
+      <div id="fnCls"></div>
+      <form class="fn-form" autocomplete="off" onsubmit="return false">
+        <div class="fn-grp"><h4>When &amp; where</h4><div class="fn-row">${fnCommon.map(f => fnField(f, v)).join('')}</div></div>
+        <div class="fn-grp"><h4>Details</h4>${t.fields.map(f => fnField(f, v)).join('')}</div>
+        ${t.id === 'alarm' || t.id === 'trespass' ? '' : `<details class="fn-grp fn-contact"${v.cName || v.cPhone || v.cAddr ? ' open' : ''}><summary><h4>Complainant contact</h4></summary>${fnContact.map(f => fnField(f, v)).join('')}</details>`}
+        <div class="fn-grp"><h4>Additional notes</h4><div class="fn-f"><textarea data-k="notes" rows="3" aria-label="Additional notes" placeholder="Witnesses, cameras checked, officers on scene, follow-up…">${esc(v.notes || '')}</textarea></div></div>
+      </form>
+      <div class="fn-out"><div class="fn-out-h"><h4>Narrative</h4><small>Not saved — copy before you reload</small></div><pre id="fnText" class="fn-text"></pre>
+        <div class="fn-actions"><button type="button" class="btn-p" data-fnact="copy">Copy</button>${navigator.share ? '<button type="button" class="mini" data-fnact="share">Share</button>' : ''}<button type="button" class="mini" data-fnact="clear">Clear</button></div></div>`;
+    fnRender(t, v);
+    if (scroll) requestAnimationFrame(() => { const y = p.getBoundingClientRect().top + scrollY - ($('.top').offsetHeight + 12); window.scrollTo({ top: y, behavior: 'smooth' }); });
+  }
+  function fnRead(t) {
+    const v = {}; const p = $('#fnPanel');
+    $$('input[data-k]:not([type=checkbox]), textarea[data-k], select[data-k]', p).forEach(i => { v[i.dataset.k] = i.value; });
+    $$('.fn-opt.on', p).forEach(b => { v[b.dataset.k] = b.dataset.v; });
+    $$('input[type=checkbox][data-k]', p).forEach(i => { (v[i.dataset.k] = v[i.dataset.k] || []); if (i.checked) v[i.dataset.k].push(i.value); });
+    return v;
+  }
+  function fnRender(t, v) {
+    const p = $('#fnPanel');
+    [...fnCommon, ...t.fields].forEach(f => { if (f.show) { const el = $(`.fn-f[data-k="${f.k}"]`, p); if (el) el.hidden = !f.show(v); } });
+    const r = fnCompose(t, v);
+    $('#fnText').innerHTML = fnHTML(r.raw);
+    $('#fnCls').innerHTML = r.cls ? `<div class="fn-cls"><span class="lvl ${lvlInfo(r.cls[2].replace('A Misdemeanor', 'A Misdemeanor')).cls}">${esc(r.cls[2])}</span><div><b>${esc(r.cls[1])}</b> · PL ${esc(r.cls[0])}${r.extra ? `<small>${esc(r.extra)}</small>` : ''}</div><button type="button" class="mini" data-sec="${r.cls[0]}">Read ${r.cls[0]}</button></div>` : r.extra ? `<div class="fn-cls"><div><b>No Penal Law charge</b><small>${esc(r.extra)}</small></div></div>` : '';
+    p._raw = r.raw;
+  }
+  fnGrid();
+  $('#fnGrid').addEventListener('click', e => { const b = e.target.closest('[data-fn]'); if (!b) return; if (fnCur === b.dataset.fn) { fnCur = null; $('#fnPanel').hidden = true; fnGrid(); return; } fnOpen(b.dataset.fn, true); });
+  const fnUpd = () => { const t = FN.find(x => x.id === fnCur); if (!t) return; const v = fnRead(t); fnSave(t.id, v); fnRender(t, v); };
+  $('#fnPanel').addEventListener('input', fnUpd);
+  $('#fnPanel').addEventListener('click', e => {
+    const o = e.target.closest('.fn-opt');
+    if (o) { const on = o.classList.contains('on'); $$(`.fn-opt[data-k="${o.dataset.k}"]`, $('#fnPanel')).forEach(x => { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); }); if (!on) { o.classList.add('on'); o.setAttribute('aria-pressed', 'true'); } fnUpd(); fnGrid(); return; }
+    if (e.target.closest('[data-fnclose]')) { fnCur = null; $('#fnPanel').hidden = true; fnGrid(); return; }
+    const a = e.target.closest('[data-fnact]'); if (!a) return;
+    const txt = fnPlain($('#fnPanel')._raw || '');
+    if (a.dataset.fnact === 'copy') copy(txt, 'Narrative copied');
+    else if (a.dataset.fnact === 'share') navigator.share({ title: 'Field notes', text: txt }).catch(() => {});
+    else if (a.dataset.fnact === 'clear') { if (confirm('Clear this draft?')) { delete fnStore[fnCur]; fnOpen(fnCur); toast('Draft cleared'); } }
+  });
+  $('#fnPanel').addEventListener('input', () => fnGrid(), { passive: true });
+  window.fnOpenType = id => fnOpen(id, true);
+
+  /* ---------- Henderson Rules ---------- */
+  const HR = C.henderson;
+  function hrRender(q = '') {
+    const ql = q.trim().toLowerCase();
+    const rows = HR.rules.map((r, i) => [i + 1, ...r]).filter(r => !ql || String(r[0]) === ql || r[1].toLowerCase().includes(ql) || r[2].toLowerCase().includes(ql));
+    $('#hrRules').innerHTML = rows.length ? rows.map(r => `<details class="hr-rule card" id="hr-${r[0]}"${ql ? ' open' : ''}><summary><span class="hr-n">${r[0]}</span><b>${esc(r[1])}</b></summary><p>${ql && ql.length > 1 ? esc(r[2]).replace(new RegExp(ql.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<mark>${m}</mark>`) : esc(r[2])}</p></details>`).join('') : '<p class="rd-note">No rule matches that filter.</p>';
+  }
+  hrRender();
+  $('#hrQ').addEventListener('input', e => hrRender(e.target.value));
+  $('#hrPen').innerHTML = HR.penalties.map(p => `<div class="card hr-p"><b>${esc(p[0])}</b><p>${esc(p[1])}</p></div>`).join('') + '<p class="rd-note">Any penalties above are in addition to any other penalty provided by law or The City University Trustees.</p>';
+  $('#hrSan').innerHTML = `<dl class="card">${HR.sanctions.map(s => `<div><dt><span class="hr-n sm">${s[0]}</span>${esc(s[1])}</dt>${s[2] ? `<dd>${esc(s[2])}</dd>` : ''}</div>`).join('')}</dl>`;
+  $('#hrSrc').innerHTML = `${esc(HR.adopted)} <a href="${HR.source}" target="_blank" rel="noopener">CUNY Henderson Rules</a>`;
+  document.addEventListener('click', e => {
+    const j = e.target.closest('[data-jump^="hr-"]'); if (j) { if ($('#hrQ').value) { $('#hrQ').value = ''; hrRender(); } const d = document.getElementById(j.dataset.jump); if (d) d.open = true; }
+    const f = e.target.closest('.sp-item[data-fnjump]'); if (f) { e.preventDefault(); $('#q').value = ''; $('#q').blur(); closeGlobal(); fnOpen(f.dataset.fnjump, true); }
+  }, true);
+
   /* ---------- Club rooms ---------- */
   const CR = C.clubRooms; const roomId = c => 'room-' + c.replace(/\W+/g, '');
   function renderRooms(q = '') {
@@ -369,7 +511,11 @@
     if (pho.length) groups.push(['Phonetic alphabet', pho.map(w => `<button class="sp-item" data-jump="phonetic"><span class="k">${w[0]}</span><span class="v">${w}</span></button>`)]);
     const nar = C.narratives.filter(n => m(n[0]) || (ql.length > 3 && n[1].toLowerCase().includes(ql)));
     if (nar.length) groups.push(['Narrative templates', nar.map(n => `<button class="sp-item" data-jump="reports"><span class="v">${esc(n[0])}<small>${esc(n[1].slice(0, 90))}…</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const fnm = C.fieldNotes.filter(t => m(t.name, (t.sub || '') + ' field notes ' + (t.larceny ? 'petit grand 155.25 155.30' : (t.code || []).join(' ')) + ' ' + (t.kw || '')));
+    if (fnm.length && ql.length > 2) groups.push(['Field notes', fnm.map(t => `<button class="sp-item" data-fnjump="${t.id}"><span class="v">${esc(t.name)}<small>Open field notes form</small></span></button>`)]);
+    const hrm = ql.length > 2 ? C.henderson.rules.map((r, i) => [i + 1, ...r]).filter(r => m(r[1], r[2] + ' henderson rule ' + r[0])) : [];
+    if (hrm.length) groups.push(['Henderson Rules', hrm.slice(0, 6).map(r => `<button class="sp-item" data-jump="hr-${r[0]}"><span class="k">${r[0]}</span><span class="v">${esc(r[1])}<small>Henderson Rule ${r[0]}</small></span></button>`)]);
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);
