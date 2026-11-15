@@ -1,4 +1,4 @@
-/* Hostos Public Safety Resources — content transcribed from posted reference materials */
+/* Public Safety Resources — content transcribed from posted reference materials */
 const YPD = 'https://ypdcrime.com/penal.law/';
 
 window.CONTENT = {

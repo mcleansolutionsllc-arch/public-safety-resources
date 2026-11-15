@@ -1,6 +1,6 @@
 {
-  "name": "Hostos Public Safety Resources",
-  "short_name": "Hostos PS",
+  "name": "Public Safety Resources",
+  "short_name": "Public Safety",
   "description": "Field reference: crime classifications, Penal Law lookup, Jagger Hall codes, radio codes, report writing, schedules.",
   "start_url": "./",
   "scope": "./",

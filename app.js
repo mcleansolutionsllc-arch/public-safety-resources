@@ -331,7 +331,7 @@
 
   /* ---------- Share & install ---------- */
   $('#shareBtn').addEventListener('click', async () => {
-    const data = { title: 'Hostos Public Safety Resources', text: 'Field reference: crime classifications, Penal Law lookup, Jagger Hall codes, radio codes and more.', url: location.href.split('#')[0] };
+    const data = { title: 'Public Safety Resources', text: 'Field reference: crime classifications, Penal Law lookup, Jagger Hall codes, radio codes and more.', url: location.href.split('#')[0] };
     if (navigator.share) { try { await navigator.share(data); } catch {} } else copy(data.url, 'Link copied');
   });
   let deferred = null;
