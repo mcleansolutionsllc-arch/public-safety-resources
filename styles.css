@@ -399,3 +399,5 @@ mark { background: #fff1a8; color: inherit; border-radius: 3px; padding: 0 1px; 
 .rd-table tr.sel td { background: var(--accent-soft); font-weight: 800; color: var(--text); }
 .rd-note { font-size: var(--text-sm); color: var(--muted); margin: var(--space-3) 0 0; }
 .rd-pick input { color-scheme: light; } @media (prefers-color-scheme: dark) { .rd-pick input { color-scheme: dark; } }
+#peel { min-height: calc(100vh - 170px); min-height: calc(100dvh - 170px); }
+.doc-btn img { aspect-ratio: 3 / 4; height: auto; }

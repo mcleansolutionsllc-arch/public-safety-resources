@@ -113,8 +113,7 @@
       <h3 class="sub" style="margin-top:var(--space-6)">Full week</h3>
       <div class="legend"><span><i style="background:#f9d9d5"></i>Overtime</span><span><i style="background:#fde3c7"></i>Firewatch</span><span><i style="background:var(--surface-2);border:1px solid var(--border)"></i>RDO / none</span><span><i style="background:var(--accent)"></i>Today</span></div>
       <div class="tbl-wrap"><table class="tm"><thead>${head}</thead><tbody>${body}</tbody></table></div>
-      <p class="tm-foot">Swipe the table sideways to see every day. ${t.footer ? esc(t.footer) : ''}</p>
-      <figure class="doc tm-orig"><button class="doc-btn" data-view="${t.id}" data-cap="${esc(t.name)} · ${esc(t.label)} (${esc(t.time)}) · ${esc(t.asof)}"><img src="./img/${t.id}.jpg" alt="Original posted ${esc(t.name)} schedule" loading="lazy"><span class="doc-tag">Original posted sheet</span></button></figure>`;
+      <p class="tm-foot">Swipe the table sideways to see every day. ${t.footer ? esc(t.footer) : ''}</p>`;
   }
   function selectTour(id) { activeTour = id; renderTabs(); renderTour(); }
   $('#tourTabs').addEventListener('click', e => { const b = e.target.closest('[data-tour]'); if (b) selectTour(b.dataset.tour); });
@@ -384,13 +383,42 @@
   panel.addEventListener('click', e => { if (e.target.closest('[data-jump]')) { $('#q').value = ''; } });
   window.addEventListener('resize', () => { if (!panel.hidden) placePanel(); });
 
-  /* ---------- Chips scroll-spy ---------- */
+  /* ---------- Chips: tap-to-scroll + scroll-spy ---------- */
   const chips = $$('.chip'); const ids = chips.map(c => c.getAttribute('href').slice(1));
+  const chipBar = $('#chips'); let spyLock = 0, lockT;
+  const setChip = id => chips.forEach(c => {
+    const on = c.getAttribute('href') === '#' + id; if (on === c.classList.contains('on')) return;
+    c.classList.toggle('on', on);
+    if (on) { const l = c.offsetLeft - (chipBar.clientWidth - c.offsetWidth) / 2; chipBar.scrollTo({ left: Math.max(0, l), behavior: 'smooth' }); }
+  });
+  const headerH = () => $('.top').getBoundingClientRect().height;
+  const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function goTo(id) {
+    const el = document.getElementById(id); if (!el) return;
+    const y = () => Math.max(0, el.getBoundingClientRect().top + scrollY - headerH() - 8);
+    spyLock = 1; setChip(id); clearTimeout(lockT);
+    window.scrollTo({ top: y(), behavior: smooth ? 'smooth' : 'auto' });
+    let last = -1, still = 0;
+    const settle = () => {  // wait until scrolling stops, then correct for any layout shift
+      if (Math.abs(scrollY - last) < 1) still++; else still = 0; last = scrollY;
+      if (still < 4) { lockT = setTimeout(settle, 60); return; }
+      if (Math.abs(scrollY - y()) > 2) window.scrollTo({ top: y(), behavior: 'auto' });
+      spyLock = 0; setChip(id);
+    };
+    lockT = setTimeout(settle, 120);
+    history.replaceState(null, '', '#' + id);
+  }
   const spy = new IntersectionObserver(ents => {
-    ents.forEach(en => { if (en.isIntersecting) { const id = en.target.id; chips.forEach(c => { const on = c.getAttribute('href') === '#' + id; c.classList.toggle('on', on); if (on) c.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }); } });
+    if (spyLock) return;
+    ents.forEach(en => { if (en.isIntersecting) setChip(en.target.id); });
   }, { rootMargin: '-45% 0px -50% 0px' });
   ids.forEach(id => { const el = document.getElementById(id); el && spy.observe(el); });
-  chips.forEach(c => c.addEventListener('click', e => { if (!panel.hidden) { $('#q').value = ''; closeGlobal(); } }));
+  chips.forEach(c => c.addEventListener('click', e => {
+    e.preventDefault(); if (!panel.hidden) { $('#q').value = ''; closeGlobal(); }
+    goTo(c.getAttribute('href').slice(1));
+  }));
+  ['wheel', 'touchstart', 'keydown'].forEach(ev => window.addEventListener(ev, () => { if (spyLock) { spyLock = 0; clearTimeout(lockT); } }, { passive: true }));
+  if (location.hash && ids.includes(location.hash.slice(1))) setTimeout(() => goTo(location.hash.slice(1)), 300);
 
   /* ---------- Lazy-load index when lookup nears view ---------- */
   new IntersectionObserver((ents, o) => { if (ents.some(x => x.isIntersecting)) { loadPL(); o.disconnect(); } }, { rootMargin: '600px' }).observe($('#lookup'));
