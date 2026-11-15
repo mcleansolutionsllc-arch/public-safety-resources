@@ -212,6 +212,22 @@
     const b = C.buildings.find(x => x[0] === v.loc);
     return v.loc + (addr && b ? ` (${b[2]})` : '') + ((v.locDet || '').trim() ? ', ' + v.locDet.trim() : '');
   };
+  const fnPerp = [
+    { k: 'kUnk', l: 'Perpetrator identity', t: 'seg', o: ['Unknown'] },
+    { k: 'kName', l: 'Name', ph: 'Last, First', pc: 1 },
+    { k: 'kAff', l: 'College affiliation', t: 'seg', o: ['this campus', 'other CUNY', 'not affiliated'], pc: 1 },
+    { k: 'kPhone', l: 'Phone', t: 'tel', ph: '718-555-0123', pc: 1 },
+    { k: 'kAddr', l: 'Address', ph: 'Street, City, ZIP', pc: 1 },
+    { k: 'sDesc', l: 'Description', t: 'area', ph: 'Sex, race, age range, build, height, clothing — e.g. Male Black or Hispanic; 18 to 22 yrs old; slim build; 5\'11" to 6\'1"; Blk hat, Blk hooded jacket, blue jeans, Bwn boots' }
+  ];
+  const fnOfficer = [
+    { k: 'oNames', l: 'Responding officer(s)', ph: 'P.O. Smith #123 and P.O. Jones #456' },
+    { k: 'oCall', l: 'How Public Safety was made aware', t: 'seg', o: ['call for service', 'officer observation', 'walk-in report', 'alarm activation'] },
+    { k: 'oActions', l: 'Actions taken', t: 'area', ph: 'Canvassed the area, checked cameras, notified the Sergeant…' },
+    { k: 'oDisp', l: 'Final disposition', t: 'checks', o: ['Report taken', 'Individual advised', 'Referred for follow-up', 'Escorted from location', 'Turned over to NYPD', 'Arrested by NYPD'] },
+    { k: 'oPrep', l: 'Prepared by (name / shield #)', ph: 'P.O. Smith #123' }
+  ];
+  const fnDispTxt = { 'Report taken': 'A report was taken.', 'Individual advised': 'The individual was advised.', 'Referred for follow-up': 'The matter was referred for follow-up.', 'Escorted from location': 'The individual was escorted from the location.', 'Turned over to NYPD': 'The individual was turned over to NYPD.', 'Arrested by NYPD': 'The individual was arrested by NYPD.' };
   const fnContact = [
     { k: 'cName', l: 'Name', ph: 'Last, First' },
     { k: 'cPhone', l: 'Phone', t: 'tel', ph: '718-555-0123' },
@@ -228,7 +244,7 @@
   }
   function fnCompose(t, v) {
     const ph = l => `\u0001${l}\u0002`;
-    const lab = k => { const f = [...fnCommon, ...t.fields].find(x => x.k === k); return f ? f.l.toLowerCase().replace(/\s*\(.*\)/, '') : k; };
+    const lab = k => { const f = [...fnCommon, ...t.fields, ...fnPerp, ...fnOfficer, ...fnContact].find(x => x.k === k); return f ? f.l.toLowerCase().replace(/\s*\(.*\)/, '') : k; };
     const p = k => k === 'loc' ? (fnLoc(v) || ph(v.loc === 'Off campus' ? 'off-campus location' : 'location')) : k === 'aff' ? (v.aff ? `(${v.aff})` : ph('this campus/other CUNY')) : (v[k] && String(v[k]).trim()) ? String(v[k]).trim() : ph(lab(k));
     const o = `At approximately ${v.time ? mil(v.time) : ph('time')} on ${v.date ? usDate(v.date) : ph('date')}, at ${p('loc')},`;
     let cls = t.code, extra = '';
@@ -239,11 +255,27 @@
     out.push(`Location: ${fnLoc(v, 1) || ph(v.loc === 'Off campus' ? 'off-campus location' : 'location')}`);
     const ct = [v.cName, v.cPhone, v.cAddr].filter(x => x && x.trim());
     if (ct.length) out.push(`Complainant: ${ct.join(' · ')}`);
-    out.push('', t.text(v, p, o));
+    const nar = t.text(v, p, o);
+    const resp = fnRespText(v, p);
+    out.push('', nar);
+    if (resp) out.push('', resp);
     if ((v.pDesc || v.value) && t.fields.some(f => f.k === 'pDesc')) out.push('', `Property: ${p('pDesc')}${v.value ? ` — approx. value $${String(v.value).replace(/^\$/, '')}` : ''}`);
-    if (v.sDesc) out.push(`Suspect: ${v.sDesc.trim()}`);
+    if (t.perp) { const pr = fnPerpLine(v); if (pr) out.push(`Perpetrator: ${pr}`); }
     if (v.notes && v.notes.trim()) out.push('', `Notes: ${v.notes.trim()}`);
-    return { raw: out.join('\n'), cls, extra };
+    return { raw: out.join('\n'), cls, extra, nar, resp, p };
+  }
+  function fnPerpLine(v) {
+    if (v.kUnk) return 'Unknown' + ((v.sDesc || '').trim() ? ' — ' + v.sDesc.trim() : '');
+    const a = [v.kName, v.kAff, v.kPhone, v.kAddr, v.sDesc].map(x => (x || '').trim()).filter(Boolean);
+    return a.join(' · ');
+  }
+  function fnRespText(v, p, force) {
+    const any = ['oNames', 'oCall', 'oActions'].some(k => (v[k] || '').trim()) || (v.oDisp || []).length;
+    if (!any && !force) return '';
+    const how = { 'call for service': 'responded to a call for service', 'officer observation': 'observed the incident while on patrol', 'walk-in report': 'received a walk-in report', 'alarm activation': 'responded to an alarm activation' }[v.oCall] || '\u0001responded to / observed\u0002';
+    const acts = (v.oActions || '').trim();
+    const d = (v.oDisp || []).map(x => fnDispTxt[x]).join(' ');
+    return `Public Safety Officer(s) ${p('oNames')} ${how} at ${p('loc')}.` + (acts ? ` Officers ${acts.replace(/^officers?\s+/i, '').replace(/\.$/, '')}.` : '') + (d ? ' ' + d : ' \u0001final disposition\u0002.') + ' No further incidents occurred.';
   }
   const fnPlain = s => s.replace(/\u0001([^\u0002]*)\u0002/g, '($1)');
   const fnHTML = s => esc(s).replace(/\u0001([^\u0002]*)\u0002/g, '<span class="fn-ph">($1)</span>');
@@ -273,11 +305,13 @@
       <form class="fn-form" autocomplete="off" onsubmit="return false">
         <div class="fn-grp"><h4>When &amp; where</h4><div class="fn-row">${fnCommon.map(f => fnField(f, v)).join('')}</div></div>
         <div class="fn-grp"><h4>Details</h4>${t.fields.map(f => fnField(f, v)).join('')}</div>
-        ${t.id === 'alarm' || t.id === 'trespass' ? '' : `<details class="fn-grp fn-contact"${v.cName || v.cPhone || v.cAddr ? ' open' : ''}><summary><h4>Complainant contact</h4></summary>${fnContact.map(f => fnField(f, v)).join('')}</details>`}
+        ${t.perp ? `<div class="fn-grp fn-perp${v.kUnk ? ' unk' : ''}"><h4>${t.id === 'weapon' || t.id === 'trespass' ? 'Subject' : 'Perpetrator'} information</h4>${fnPerp.filter(f => !(f.k === 'kAff' && t.fields.some(x => x.k === 'saff'))).map(f => fnField(t.id === 'weapon' || t.id === 'trespass' ? (f.k === 'kUnk' ? { ...f, l: 'Subject identity' } : f) : f, v)).join('')}<p class="fn-unk-note">${t.id === 'weapon' || t.id === 'trespass' ? 'Subject' : 'Perpetrator'} unknown — contact fields not required. Add a description if available.</p></div>` : ''}
+        ${t.fields.some(f => f.k === 'gender') ? `<div class="fn-grp"><h4>${t.id === 'aided' ? 'Aided' : 'Complainant'} contact information</h4>${fnContact.map(f => fnField(f, v)).join('')}</div>` : ''}
+        <div class="fn-grp"><h4>Officer response &amp; disposition</h4>${fnOfficer.map(f => fnField(f, v)).join('')}</div>
         <div class="fn-grp"><h4>Additional notes</h4><div class="fn-f"><textarea data-k="notes" rows="3" aria-label="Additional notes" placeholder="Witnesses, cameras checked, officers on scene, follow-up…">${esc(v.notes || '')}</textarea></div></div>
       </form>
       <div class="fn-out"><div class="fn-out-h"><h4>Narrative</h4><small>Not saved — copy before you reload</small></div><pre id="fnText" class="fn-text"></pre>
-        <div class="fn-actions"><button type="button" class="btn-p" data-fnact="copy">Copy</button>${navigator.share ? '<button type="button" class="mini" data-fnact="share">Share</button>' : ''}<button type="button" class="mini" data-fnact="clear">Clear</button></div></div>`;
+        <div class="fn-actions"><button type="button" class="btn-p" data-fnact="report">Generate report</button><button type="button" class="mini" data-fnact="copy">Copy</button><button type="button" class="mini" data-fnact="clear">Clear</button></div></div>`;
     fnRender(t, v);
     if (scroll) requestAnimationFrame(() => { const y = p.getBoundingClientRect().top + scrollY - ($('.top').offsetHeight + 12); window.scrollTo({ top: y, behavior: 'smooth' }); });
   }
@@ -290,11 +324,13 @@
   }
   function fnRender(t, v) {
     const p = $('#fnPanel');
+    const unk = !!v.kUnk, pg = $('.fn-perp', p);
+    if (pg) { pg.classList.toggle('unk', unk); fnPerp.filter(f => f.pc).forEach(f => { const el = $(`.fn-f[data-k="${f.k}"]`, pg); if (!el) return; el.classList.toggle('off', unk); $$('input, button', el).forEach(i => { i.disabled = unk; }); }); }
     [...fnCommon, ...t.fields].forEach(f => { if (f.show) { const el = $(`.fn-f[data-k="${f.k}"]`, p); if (el) el.hidden = !f.show(v); } });
     const r = fnCompose(t, v);
     $('#fnText').innerHTML = fnHTML(r.raw);
     $('#fnCls').innerHTML = r.cls ? `<div class="fn-cls"><span class="lvl ${lvlInfo(r.cls[2].replace('A Misdemeanor', 'A Misdemeanor')).cls}">${esc(r.cls[2])}</span><div><b>${esc(r.cls[1])}</b> · PL ${esc(r.cls[0])}${r.extra ? `<small>${esc(r.extra)}</small>` : ''}</div><button type="button" class="mini" data-sec="${r.cls[0]}">Read ${r.cls[0]}</button></div>` : r.extra ? `<div class="fn-cls"><div><b>No Penal Law charge</b><small>${esc(r.extra)}</small></div></div>` : '';
-    p._raw = r.raw;
+    p._raw = r.raw; p._r = r; p._v = v;
   }
   fnGrid();
   $('#fnGrid').addEventListener('click', e => { const b = e.target.closest('[data-fn]'); if (!b) return; if (fnCur === b.dataset.fn) { fnCur = null; $('#fnPanel').hidden = true; fnGrid(); return; } fnOpen(b.dataset.fn, true); });
@@ -306,12 +342,64 @@
     if (e.target.closest('[data-fnclose]')) { fnCur = null; $('#fnPanel').hidden = true; fnGrid(); return; }
     const a = e.target.closest('[data-fnact]'); if (!a) return;
     const txt = fnPlain($('#fnPanel')._raw || '');
+    if (a.dataset.fnact === 'report') { fnReportOpen(); return; }
     if (a.dataset.fnact === 'copy') copy(txt, 'Narrative copied');
     else if (a.dataset.fnact === 'share') navigator.share({ title: 'Field notes', text: txt }).catch(() => {});
     else if (a.dataset.fnact === 'clear') { if (confirm('Clear this draft?')) { delete fnStore[fnCur]; fnOpen(fnCur); toast('Draft cleared'); } }
   });
   $('#fnPanel').addEventListener('input', () => fnGrid(), { passive: true });
   window.fnOpenType = id => fnOpen(id, true);
+
+
+  /* ---------- Field notes → incident report ---------- */
+  function fnReportData() {
+    const t = FN.find(x => x.id === fnCur), P = $('#fnPanel'), v = P._v || {}, r = P._r; if (!t || !r) return null;
+    const ph = l => `\u0001${l}\u0002`, p = r.p, val = (k, l) => (v[k] || '').toString().trim() || ph(l);
+    const has = k => t.fields.some(f => f.k === k);
+    const secs = [];
+    secs.push(['Incident', [['Type', t.name], ...(r.cls ? [['Classification', `PL ${r.cls[0]} ${r.cls[1]} (${r.cls[2]})`]] : r.extra ? [['Classification', 'No Penal Law charge — ' + r.extra]] : [])]]);
+    secs.push(['Time / place / occurrence', [['Date of occurrence', v.date ? usDate(v.date) : ph('date')], ['Time of occurrence', v.time ? mil(v.time) : ph('time')], ['Report time', v.rtime ? mil(v.rtime) : ph('report time')], ['Location', fnLoc(v, 1) || ph('location')]]]);
+    if (has('gender')) secs.push([t.id === 'aided' ? 'Contact information — Aided' : 'Contact information — Complainant', [['Name', val('cName', 'name')], ['Gender', val('gender', 'gender')], ['College affiliation', val('aff', 'this campus/other CUNY')], ['Status', val('role', 'status')], ['Address', val('cAddr', 'address')], ['Phone', val('cPhone', 'phone')]]]);
+    if (t.perp) secs.push([t.id === 'weapon' || t.id === 'trespass' ? 'Contact information — Subject' : 'Contact information — Perpetrator', v.kUnk ? [['Identity', 'Unknown'], ...(has('saff') ? [['Status', val('srole', 'subject status')], ['College affiliation', val('saff', 'subject affiliation')]] : []), ['Description', val('sDesc', 'description')]] :
+      [['Name', val('kName', 'name')], ...(has('srole') ? [['Status', val('srole', 'subject status')]] : []), ['College affiliation', has('saff') ? val('saff', 'subject affiliation') : val('kAff', 'affiliation')], ['Address', val('kAddr', 'address')], ['Phone', val('kPhone', 'phone')], ['Description', val('sDesc', 'description')]]]);
+    if (has('pDesc')) secs.push(['Property', [['Description', val('pDesc', 'property description')], ['Approx. value', v.value ? '$' + String(v.value).replace(/^\$/, '') : ph('value')]]]);
+    const nar = [r.nar, fnRespText(v, p, true)];
+    if ((v.notes || '').trim()) nar.push(v.notes.trim());
+    const now = new Date();
+    return { t, secs, nar, prep: val('oPrep', 'name / shield #'), gen: `${usDate(todayISO())} ${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')} hrs` };
+  }
+  const rpTitle = 'PUBLIC SAFETY INCIDENT REPORT';
+  function rpText(d) {
+    const L = [rpTitle, ''];
+    d.secs.forEach(([h, rows]) => { L.push(h.toUpperCase()); rows.forEach(([k, x]) => L.push(`${k}: ${x}`)); L.push(''); });
+    L.push('NARRATIVE'); d.nar.forEach(n => L.push(n, '')); L.push(`Prepared by: ${d.prep}`, `Generated: ${d.gen}`);
+    return fnPlain(L.join('\n'));
+  }
+  function rpHTML(d, forDoc) {
+    const f = forDoc ? x => esc(fnPlain(x)) : fnHTML;
+    return `<div class="rp"><h2 class="rp-t">${rpTitle}</h2>` + d.secs.map(([h, rows]) => `<section class="rp-s"><h3>${esc(h)}</h3><table>${rows.map(([k, x]) => `<tr><th>${esc(k)}</th><td>${f(x)}</td></tr>`).join('')}</table></section>`).join('') +
+      `<section class="rp-s"><h3>Narrative</h3>${d.nar.map(n => `<p>${f(n)}</p>`).join('')}</section><p class="rp-foot">Prepared by: ${f(d.prep)} &nbsp;·&nbsp; Generated: ${esc(d.gen)}</p></div>`;
+  }
+  function fnReportOpen() {
+    const d = fnReportData(); if (!d) return;
+    const blanks = (d.secs.flatMap(x => x[1].map(r => r[1])).join('') + d.nar.join('') + d.prep).split('\u0001').length - 1;
+    $('#rpBody').innerHTML = (blanks ? `<p class="rp-warn">${blanks} field${blanks > 1 ? 's' : ''} still blank — shown highlighted. Fill them in on the form or edit after export.</p>` : '') + rpHTML(d);
+    $('#rpSub').textContent = d.t.name + (d.secs[0][1][1] ? ' · ' + fnPlain(d.secs[0][1][1][1]).replace(/ — .*/, '') : '');
+    $('#rpShare').hidden = !navigator.share;
+    openSheet($('#reportSheet'));
+  }
+  const rpFile = d => `Incident-Report_${d.t.name.replace(/\W+/g, '-')}_${(($('#fnPanel')._v || {}).date || todayISO())}`;
+  function rpDownload(name, type, body) { const b = new Blob([body], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
+  const rpDocCSS = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000}h2{font-size:15pt;text-align:center;margin:0 0 12pt}h3{font-size:11pt;text-transform:uppercase;border-bottom:1px solid #000;margin:14pt 0 4pt}table{border-collapse:collapse;width:100%}th{text-align:left;width:34%;font-weight:bold;padding:2pt 6pt 2pt 0;vertical-align:top}td{padding:2pt 0;vertical-align:top}p{margin:0 0 8pt;line-height:1.4}.rp-foot{margin-top:16pt;font-size:10pt}';
+  $('#reportSheet').addEventListener('click', e => {
+    const b = e.target.closest('[data-rp]'); if (!b) return; const d = fnReportData(); if (!d) return;
+    const act = b.dataset.rp;
+    if (act === 'doc') { rpDownload(rpFile(d) + '.doc', 'application/msword', `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${rpTitle}</title><style>${rpDocCSS}</style></head><body>${rpHTML(d, true)}</body></html>`); toast('Word file downloaded'); }
+    else if (act === 'txt') { rpDownload(rpFile(d) + '.txt', 'text/plain', rpText(d)); toast('Text file downloaded'); }
+    else if (act === 'print') { const pa = $('#printArea'); pa.innerHTML = rpHTML(d, true); document.body.classList.add('print-report'); const done = () => { document.body.classList.remove('print-report'); pa.innerHTML = ''; window.removeEventListener('afterprint', done); }; window.addEventListener('afterprint', done); setTimeout(() => { window.print(); setTimeout(done, 1000); }, 50); }
+    else if (act === 'share') { const txt = rpText(d); let f = null; try { f = new File([txt], rpFile(d) + '.txt', { type: 'text/plain' }); } catch {} const data = f && navigator.canShare && navigator.canShare({ files: [f] }) ? { title: rpTitle, files: [f] } : { title: rpTitle, text: txt }; navigator.share(data).catch(() => {}); }
+    else if (act === 'copy') copy(rpText(d), 'Report copied');
+  });
 
   /* ---------- Henderson Rules ---------- */
   const HR = C.henderson;

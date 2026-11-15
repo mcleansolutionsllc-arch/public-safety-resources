@@ -310,6 +310,26 @@
   </div>
 </div>
 
+<div class="sheet" id="reportSheet" hidden role="dialog" aria-modal="true" aria-labelledby="rpTitle">
+  <div class="sheet-scrim" data-close></div>
+  <div class="sheet-body rp-sheet">
+    <div class="sheet-grab" data-close></div>
+    <div class="sheet-head">
+      <div><p class="eyebrow">Incident report</p><h3 id="rpTitle">Report preview</h3><p class="rp-sub" id="rpSub"></p></div>
+      <button class="icon-btn dark" data-close aria-label="Close"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="rp-body" id="rpBody"></div>
+    <div class="rp-actions">
+      <button class="btn primary" data-rp="print">Save as PDF / Print</button>
+      <button class="btn" data-rp="doc">Download Word</button>
+      <button class="btn" data-rp="txt">Download text</button>
+      <button class="btn" data-rp="share" id="rpShare">Share</button>
+      <button class="btn" data-rp="copy">Copy</button>
+    </div>
+  </div>
+</div>
+<div id="printArea" aria-hidden="true"></div>
+
 <!-- Image viewer -->
 <div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-label="Image viewer">
   <div class="viewer-bar">

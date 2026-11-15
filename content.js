@@ -310,35 +310,34 @@ window.CONTENT = {
         { k: 'clear', l: 'All clear given by', ph: 'name' },
         { k: 'fdny', l: 'FDNY off-site at', t: 'time' }],
       text: (v, p, o) => `${o} a ${p('atype')} was activated. ${p('resp')} ${p('rn')}. Source of alarm turned out to be ${p('source')}. The building ${p('evac')} evacuated. The all clear was given by ${p('clear')}. FDNY was off-site at ${p('fdny')}.` },
-    { id: 'burglary', name: 'Burglary', note: 'Item taken from a locked office or room.', fields: [...who,
+    { id: 'burglary', perp: true, name: 'Burglary', note: 'Item taken from a locked office or room.', fields: [...who,
         { k: 'item', l: 'Item(s) taken', ph: 'laptop' },
         { k: 'locked', l: 'Room locked on (date & time)', ph: '11/13 at 1700 hrs' },
         { k: 'found', l: 'Discovered missing (date & time)', ph: '11/14 at 0815 hrs' },
-        { k: 'entry', l: 'Entry', t: 'seg', o: ['forced', 'unforced'] }, ...property, ...suspect],
+        { k: 'entry', l: 'Entry', t: 'seg', o: ['forced', 'unforced'] }, ...property],
       text: (v, p, o) => `${o} the ${p('gender')} ${p('role')} ${p('aff')} reported that their ${p('item')} was taken by some unknown person from ${p('loc')}. The room was locked on ${p('locked')}. The ${p('item')} was discovered missing from ${p('loc')} at ${p('found')}. Entry was ${p('entry')}.` },
-    { id: 'larceny', name: 'Larceny', sub: 'Petit / Grand 4th', note: 'Items taken from areas or rooms open to the public.', larceny: true, fields: [...who,
+    { id: 'larceny', perp: true, name: 'Larceny', sub: 'Petit / Grand 4th', note: 'Items taken from areas or rooms open to the public.', larceny: true, fields: [...who,
         { k: 'item', l: 'Item(s) taken', ph: 'cell phone' },
         { k: 'circ', l: 'Where / how it was left', ph: 'unattended on a table in the 2nd floor library' },
         { k: 'seen', l: 'Last seen at', ph: '1300 hrs' },
         { k: 'missing', l: 'Discovered missing at', ph: '1330 hrs' }, ...property,
-        { k: 'gl', l: 'Grand larceny factors (any one makes it GL 4th)', t: 'checks', o: ['Credit or debit card', 'Taken from the person', 'Firearm / rifle / shotgun', 'Public record or document', 'Motor vehicle over $100'] },
-        ...suspect],
+        { k: 'gl', l: 'Grand larceny factors (any one makes it GL 4th)', t: 'checks', o: ['Credit or debit card', 'Taken from the person', 'Firearm / rifle / shotgun', 'Public record or document', 'Motor vehicle over $100'] }],
       text: (v, p, o) => `${o} the ${p('gender')} ${p('role')} ${p('aff')} reported that some unknown person took their ${p('item')} which was left ${p('circ')}. Item was last seen at ${p('seen')}. Item was discovered missing at ${p('missing')}.` },
     { id: 'lost', name: 'Lost Property', note: 'Item missing and the owner is not sure when or where it happened.', fields: [...who,
         { k: 'item', l: 'Item', ph: 'wallet' },
         { k: 'last', l: 'Last saw it (time & place)', ph: 'at 1100 hrs in room B-501' },
         { k: 'disc', l: 'Discovered missing (time & place)', ph: 'at 1230 hrs in the cafeteria' }, ...property],
       text: (v, p, o) => `${o} the ${p('gender')} ${p('role')} ${p('aff')} reported that they last saw their ${p('item')} when they were ${p('last')}. They discovered it missing when they were ${p('disc')}.` },
-    { id: 'robbery', name: 'Robbery', note: 'Property forcibly taken.', fields: [...who,
+    { id: 'robbery', perp: true, name: 'Robbery', note: 'Property forcibly taken.', fields: [...who,
         { k: 'force', l: 'Force used', t: 'seg', o: ['Weapon produced', 'Weapon simulated', 'Threat of physical force'] },
         { k: 'weapon', l: 'Type of weapon', ph: 'knife', show: v => v.force !== 'Threat of physical force' },
         { k: 'quote', l: 'Suspect stated (quote)', ph: 'Give me your phone' },
         { k: 'item', l: 'Item(s) taken', ph: 'cell phone' },
-        { k: 'flight', l: 'Direction of flight', ph: 'southbound on Grand Concourse' }, ...property, ...suspect],
+        { k: 'flight', l: 'Direction of flight', ph: 'southbound on Grand Concourse' }, ...property],
       text: (v, p, o) => `${o} the ${p('gender')} ${p('role')} ${p('aff')} reported that they were approached by the suspect who ` +
         (v.force === 'Threat of physical force' ? 'threatened them with physical force' : `${v.force === 'Weapon simulated' ? 'simulated' : v.force === 'Weapon produced' ? 'produced' : '(produced/simulated)'} a ${p('weapon')}`) +
         ` and took their ${p('item')}. The suspect stated "${p('quote')}." The suspect fled ${p('flight')}.` },
-    { id: 'mischief', name: 'Criminal Mischief', sub: 'PL 145.00 – 145.10', kw: 'damage vandalism graffiti broken 145', note: 'Property damaged without permission. The charge level follows the cost of the damage.',
+    { id: 'mischief', perp: true, name: 'Criminal Mischief', sub: 'PL 145.00 – 145.10', kw: 'damage vandalism graffiti broken 145', note: 'Property damaged without permission. The charge level follows the cost of the damage.',
       classify: v => {
         const val = parseFloat(String(v.value || '').replace(/[^\d.]/g, ''));
         const g = (v.dtype || '') === 'graffiti' ? '; graffiti may also be charged as Making Graffiti, PL 145.60 (A Misd.)' : '';
@@ -356,9 +355,9 @@ window.CONTENT = {
         { k: 'intent', l: 'Damage was done', t: 'seg', o: ['intentionally', 'recklessly'] },
         { k: 'seen', l: 'Damage seen or discovered at', ph: '1415 hrs' },
         { k: 'value', l: 'Est. cost of damage ($)', t: 'num', ph: '400' },
-        { k: 'by', l: 'Done by', t: 'seg', o: ['some unknown person', 'the suspect'] }, ...suspect],
+        { k: 'by', l: 'Done by', t: 'seg', o: ['some unknown person', 'the suspect'] }],
       text: (v, p, o) => `${o} the ${p('gender')} ${p('role')} ${p('aff')} reported that ${p('item')}, property of ${p('owner')}, was ${v.dtype === 'graffiti' ? 'marked with graffiti' : v.dtype && v.dtype !== 'other' ? v.dtype : p('dtype')} by ${p('by')} who ${p('how')}. The damage was ${v.by === 'some unknown person' ? 'discovered' : 'observed'} at ${p('seen')}. ${v.intent ? `The damage appears to have been done ${v.intent}. ` : ''}Estimated cost of damage is $${v.value ? String(v.value).replace(/^\$/, '') : '(est. cost of damage)'}.`.replace('$(est. cost of damage)', '\u0001est. cost of damage\u0002') },
-    { id: 'harassment', name: 'Harassment', sub: 'PL 240.25 / .26 / .30', kw: 'harass threat followed shoved stalking aggravated 240', note: 'Contact, following, or repeated alarming acts with intent to harass, annoy or alarm.',
+    { id: 'harassment', perp: true, name: 'Harassment', sub: 'PL 240.25 / .26 / .30', kw: 'harass threat followed shoved stalking aggravated 240', note: 'Contact, following, or repeated alarming acts with intent to harass, annoy or alarm.',
       classify: v => {
         const a = v.acts || [];
         if (a.includes('Threat by phone, text, email or social media')) return { c: ['240.30', 'Aggravated Harassment 2nd', 'A Misdemeanor'], why: 'threat of physical or property harm sent by phone, computer or other electronic means' };
@@ -373,12 +372,12 @@ window.CONTENT = {
         { k: 'quote', l: 'Suspect stated (quote)', ph: 'optional' },
         { k: 'method', l: 'Sent by (number, app, account)', ph: 'text messages from 347-555-0199', show: v => (v.acts || []).includes('Threat by phone, text, email or social media') },
         { k: 'inj', l: 'Injury', t: 'seg', o: ['No injury', 'Minor injury', 'Refused medical attention'] },
-        { k: 'wit', l: 'Witnesses', ph: 'names or none' }, ...suspect],
+        { k: 'wit', l: 'Witnesses', ph: 'names or none' }],
       text: (v, p, o) => `${o} the ${p('gender')} ${p('role')} ${p('aff')} reported that the suspect, ${v.known === 'known to the complainant' && v.rel ? `known to the complainant as a ${v.rel}` : p('known')}, ${p('act')}.` +
         (v.quote ? ` The suspect stated "${v.quote.trim()}."` : '') +
         ((v.acts || []).includes('Threat by phone, text, email or social media') ? ` The threat was communicated by ${p('method')}.` : '') +
         ` Complainant ${v.inj === 'Minor injury' ? 'sustained a minor injury' : v.inj === 'Refused medical attention' ? 'refused medical attention' : v.inj === 'No injury' ? 'was not injured' : '(injury)'}. Witnesses: ${p('wit')}.`.replace('(injury)', '\u0001injury\u0002') },
-    { id: 'assault', name: 'Assault', sub: 'PL 120.00 – 120.10', kw: 'assault punched struck fight injury 120', draft: true, note: 'Physical injury caused to another person. The charge level follows the injury, intent and any weapon used.',
+    { id: 'assault', perp: true, name: 'Assault', sub: 'PL 120.00 – 120.10', kw: 'assault punched struck fight injury 120', draft: true, note: 'Physical injury caused to another person. The charge level follows the injury, intent and any weapon used.',
       classify: v => {
         const ser = v.inj === 'serious physical injury', wpn = v.wpn === 'deadly weapon / dangerous instrument', rec = v.intent === 'recklessly', none = v.inj === 'no visible injury / pain only';
         const duty = (v.flags || []).includes('Victim was a peace/police officer, EMS, firefighter or nurse on duty');
@@ -403,13 +402,13 @@ window.CONTENT = {
         { k: 'hosp', l: 'Hospital', ph: 'Lincoln Hospital', show: v => v.ems === 'Transported' },
         { k: 'sdisp', l: 'Suspect', t: 'seg', o: ['fled', 'was detained', 'remained on scene'] },
         { k: 'flight', l: 'Direction of flight', ph: 'northbound on Walton Ave', show: v => v.sdisp === 'fled' },
-        { k: 'wit', l: 'Witnesses', ph: 'names or none' }, ...suspect],
+        { k: 'wit', l: 'Witnesses', ph: 'names or none' }],
       text: (v, p, o) => `${o} the ${p('gender')} ${p('role')} ${p('aff')} reported that they were assaulted by a suspect ${p('known')}. The suspect ${p('act')}` +
         (v.wpn === 'deadly weapon / dangerous instrument' ? ` using ${p('weapon')}` : '') + `. ` +
         (v.inj === 'no visible injury / pain only' ? 'Complainant had no visible injury. ' : `Complainant sustained ${p('injdesc')}. `) +
         (v.ems === 'Transported' ? `EMS responded and Complainant was transported to ${p('hosp')}. ` : v.ems === 'Refused (RMA signed)' ? 'EMS responded and Complainant refused any further medical treatment. RMA form signed. ' : v.ems === 'Not requested' ? 'Complainant declined EMS. ' : '\u0001EMS\u0002. ') +
         (v.sdisp === 'fled' ? `The suspect fled ${p('flight')}.` : v.sdisp ? `The suspect ${v.sdisp}.` : 'The suspect \u0001fled/was detained\u0002.') + ` Witnesses: ${p('wit')}.` },
-    { id: 'weapon', name: 'Criminal Possession of a Weapon', sub: 'PL 265.01 – 265.03', kw: 'criminal possession of a weapon cpw gun firearm knife stun gun knuckles 265 henderson rule 8', draft: true, note: 'Weapon or dangerous instrument found on a person or on college grounds. Also a Henderson Rule 8 violation.',
+    { id: 'weapon', perp: true, name: 'Criminal Possession of a Weapon', sub: 'PL 265.01 – 265.03', kw: 'criminal possession of a weapon cpw gun firearm knife stun gun knuckles 265 henderson rule 8', draft: true, note: 'Weapon or dangerous instrument found on a person or on college grounds. Also a Henderson Rule 8 violation.',
       classify: v => {
         const t = v.wtype || '', loaded = v.loaded === 'loaded', intent = (v.flags || []).includes('Displayed, threatened or intended to use it against another');
         const r8 = ' Also Henderson Rule 8.';
@@ -419,9 +418,7 @@ window.CONTENT = {
         return { c: null, why: 'select the weapon type to see the charge.' };
       },
       fields: [
-        { k: 'subj', l: 'Subject (name or description)', ph: 'Last, First' },
         { k: 'srole', l: 'Subject is a', t: 'seg', o: ['Student', 'Faculty', 'Staff', 'Visitor', 'unknown person'] },
-        { k: 'saff', l: 'Affiliation', t: 'seg', o: ['this campus', 'other CUNY'], show: v => v.srole && v.srole !== 'Visitor' && v.srole !== 'unknown person' },
         { k: 'how', l: 'Discovered', t: 'seg', o: ['observed by MOS', 'reported by a complainant', 'found during a bag check', 'found unattended'] },
         { k: 'mos', l: 'MOS / reporting person', ph: 'Officer name' },
         { k: 'wtype', l: 'Weapon type', t: 'seg', o: ['firearm / rifle / shotgun', 'knife / dagger / razor', 'stun gun / taser', 'metal or plastic knuckles', 'switchblade / billy / blackjack / other per se weapon', 'imitation pistol', 'other dangerous instrument'] },
@@ -432,18 +429,19 @@ window.CONTENT = {
         { k: 'disp', l: 'Disposition (check all that apply)', t: 'checks', o: ['Weapon secured by MOS', 'NYPD notified', 'NYPD responded and took custody of the weapon', 'Subject removed from campus', 'Referred to Student Conduct'] }],
       text: (v, p, o) => {
         const hw = { 'observed by MOS': `${p('mos')} observed`, 'reported by a complainant': `${p('mos')} reported`, 'found during a bag check': `during a bag check ${p('mos')} discovered`, 'found unattended': `${p('mos')} found` };
-        const sub = v.how === 'found unattended' ? `a ${p('wdesc')} unattended ${p('where')}.` : `that the subject ${v.subj ? '(' + v.subj.trim() + '), ' : ''}a ${v.srole ? v.srole : '\u0001subject is a\u0002'}${v.saff && v.srole !== 'Visitor' && v.srole !== 'unknown person' ? ' (' + v.saff + ')' : ''}, was in possession of a ${p('wdesc')} ${p('where')}.`;
+        const sub = v.how === 'found unattended' ? `a ${p('wdesc')} unattended ${p('where')}.` : `that the subject ${!v.kUnk && v.kName ? '(' + v.kName.trim() + '), ' : ''}a ${v.srole ? v.srole : '\u0001subject is a\u0002'}${!v.kUnk && (v.kAff === 'this campus' || v.kAff === 'other CUNY') && v.srole !== 'Visitor' && v.srole !== 'unknown person' ? ' (' + v.kAff + ')' : ''}, was in possession of a ${p('wdesc')} ${p('where')}.`;
         const d = v.disp || [];
         return `${o} ${v.how ? hw[v.how] : '\u0001MOS observed/reported\u0002'} ${sub}` + (v.wtype === 'firearm / rifle / shotgun' && v.loaded ? ` The firearm was ${v.loaded}.` : '') +
           ((v.flags || []).length ? ' The subject displayed, threatened or intended to use the weapon against another.' : '') +
           (d.length ? ' ' + d.map(x => x.replace(/^Weapon secured by MOS$/, 'The weapon was secured by MOS').replace(/^NYPD notified$/, 'NYPD was notified').replace(/^NYPD responded and took custody of the weapon$/, 'NYPD responded and took custody of the weapon').replace(/^Subject removed from campus$/, 'The subject was removed from campus').replace(/^Referred to Student Conduct$/, 'The matter was referred to Student Conduct')).join('. ') + '.' : ' \u0001disposition\u0002.');
       } },
-    { id: 'trespass', name: 'Trespass', code: ['140.05', 'Trespass', 'Violation'], fields: [
-        { k: 'subj', l: 'Subject', ph: 'name or description' },
+    { id: 'trespass', perp: true, name: 'Trespass', code: ['140.05', 'Trespass', 'Violation'], fields: [
+        { k: 'saff', l: 'Subject affiliation', t: 'seg', o: ['this campus', 'other CUNY', 'not affiliated'] },
+        { k: 'srole', l: 'Subject status', t: 'seg', o: ['Student', 'Faculty', 'Staff', 'Visitor', 'Former student'] },
         { k: 'where', l: 'Found in (location)', ph: 'the 3rd floor of B-Building' },
         { k: 'why', l: 'Reason', t: 'seg', o: ['after hours', 'without permission to be therein'] },
         { k: 'mos', l: 'Found by (MOS)', ph: 'Officer name' }],
-      text: (v, p, o) => `${o} the subject ${v.subj ? '(' + v.subj + ') ' : ''}was found in ${p('where')} ${p('why')} by ${p('mos')}.` }
+      text: (v, p, o) => `${o} the subject${!v.kUnk && v.kName ? ' (' + v.kName.trim() + ')' : ''}, ${v.srole ? 'a ' + (v.srole === 'Former student' ? 'former student' : v.srole) : '\u0001subject status\u0002'} ${v.saff === 'not affiliated' ? 'with no college affiliation' : v.saff ? '(' + v.saff + ')' : '\u0001subject affiliation\u0002'}, was found in ${p('where')} ${p('why')} by ${p('mos')}.` }
   ];
   C.larcenyCodes = { petit: ['155.25', 'Petit Larceny', 'A Misdemeanor'], grand: ['155.30', 'Grand Larceny 4th', 'E Felony'] };
 
