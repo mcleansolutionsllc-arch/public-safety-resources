@@ -174,7 +174,7 @@
     q = q.trim().toLowerCase();
     const list = BL.filter(b => !q || [b[0], b[1], b[2], b[3], ...b[4]].join(' ').toLowerCase().includes(q));
     $('#bldList').innerHTML = list.map(b => `<div class="bld" id="${bldId(b[0])}">
-      <div class="bld-main"><b class="bld-name">${esc(b[0])}</b><span class="bld-sector">Sector <b>${esc(b[1])}</b></span><span class="bld-addr">${esc(b[2])}<br>${esc(b[3])}</span></div>
+      <div class="bld-main"><b class="bld-name">${esc(b[0])}</b><span class="bld-sector">Sector <b>${esc(b[1])}</b>${(C.posts.sectors.find(z => z.bld === b[0]) || {}).name ? ` · Patrol post <button type="button" class="pd-tag" data-pdgo="${C.posts.sectors.find(z => z.bld === b[0]).id}">${C.posts.sectors.find(z => z.bld === b[0]).name}</button>` : ''}</span><span class="bld-addr">${esc(b[2])}<br>${esc(b[3])}</span></div>
       <div class="bld-ext">${b[4].length ? `<span class="ext-k">${b[4].some(telHref) ? 'Phone' : 'Ext.'}</span>${b[4].map(extHtml).join('<span class="ext-sep">/</span>')}` : '<span class="ext-k">Ext.</span><span class="ext-n ext-none">None listed</span>'}</div>
     </div>`).join('') || '<p class="meta">No buildings match.</p>';
   }
@@ -249,6 +249,36 @@
     try { if (window.caches) caches.open(NC).then(c => c.put(NU, new Response(j, { headers: { 'Content-Type': 'application/json' } }))).catch(() => {}); } catch (e) {}
   };
   nMerge(wnGet().n);
+  /* ---------- Post assignments ---------- */
+  const PD = C.posts, PD_TTL = 8 * 3600e3;
+  let pdSec = 'ida', PDC = {};
+  const pdHm = d => String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+  const pdLoad = () => { const o = wnGet().pd; PDC = {}; if (o) for (const k in o) if (o[k] && Date.now() - (o[k].t || 0) < PD_TTL) PDC[k] = o[k]; };
+  const pdSave = () => wnSet('pd', PDC);
+  function renderPosts() {
+    $('#pdTabs').innerHTML = PD.sectors.map(x => { const c = PDC[x.id], n = c ? c.d.length : 0; return `<button class="tab${x.id === pdSec ? ' on' : ''}" role="tab" aria-selected="${x.id === pdSec}" data-pd="${x.id}"><b>${x.name}</b><small class="pd-tb">${x.bld}</small><small>${n ? `${n} of ${x.items.length} done` : `${x.items.length} checks`}</small></button>`; }).join('');
+    const x = PD.sectors.find(z => z.id === pdSec), c = PDC[x.id], done = c ? c.d : [], n = done.length, tot = x.items.length;
+    const B = C.buildings.find(b => b[0] === x.bld);
+    const bcard = B ? `<button type="button" class="pd-bld" data-jump="${bldId(B[0])}"><span class="pd-bk">Post building</span><b>${esc(B[0])}</b><span class="pd-bs">Sector <b>${esc(B[1])}</b> · ext ${esc(B[4].join(' / '))}</span><span class="pd-ba">${esc(B[2])}</span></button>` : '';
+    $('#pdPanel').innerHTML = `${bcard}<div class="tm-meta"><span><b>Sector ${x.name}</b> · ${tot} patrol checks</span><span>at least once per 8-hour shift</span></div>
+      <div class="pd-prog${n === tot ? ' all' : ''}"><div class="pd-bar"><i style="width:${Math.round(n / tot * 100)}%"></i></div><span><b>${n}</b> of ${tot} done</span>${n ? '<button type="button" class="mini" id="pdClear">Clear checks</button>' : ''}</div>
+      <ul class="pd-list">${x.items.map((it, i) => `<li><button type="button" class="pd-item${done.includes(i) ? ' on' : ''}" data-pi="${i}" aria-pressed="${done.includes(i)}"><span class="pd-box" aria-hidden="true"></span><span class="pd-t"><b>${esc(it[0])}</b>${it[1] ? `<small>${esc(it[1])}</small>` : ''}</span></button></li>`).join('')}</ul>
+      <p class="ml-src">${c ? `Checks started ${pdHm(new Date(c.t))} hrs and clear automatically at ${pdHm(new Date(c.t + PD_TTL))} hrs. ` : 'Checks clear automatically 8 hours after the first one. '}${esc(PD.memo)} · ${esc(PD.date)} · ${esc(PD.note)}</p>`;
+  }
+  pdLoad(); renderPosts();
+  $('#pdTabs').addEventListener('click', e => { const b = e.target.closest('[data-pd]'); if (b) { pdSec = b.dataset.pd; renderPosts(); } });
+  $('#pdPanel').addEventListener('click', e => {
+    const bj = e.target.closest('.pd-bld'); if (bj) { if ($('#bldQ').value) { $('#bldQ').value = ''; renderBuildings(); } const t = document.getElementById(bj.dataset.jump); if (t) { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.classList.add('hit'); setTimeout(() => t.classList.remove('hit'), 1800); } return; }
+    if (e.target.closest('#pdClear')) { delete PDC[pdSec]; pdSave(); renderPosts(); return; }
+    const b = e.target.closest('[data-pi]'); if (!b) return;
+    const i = +b.dataset.pi, c = PDC[pdSec] || (PDC[pdSec] = { t: Date.now(), d: [] });
+    c.d = c.d.includes(i) ? c.d.filter(v => v !== i) : [...c.d, i];
+    if (!c.d.length) delete PDC[pdSec];
+    pdSave(); renderPosts();
+  });
+  $('#bldList').addEventListener('click', e => { const b = e.target.closest('[data-pdgo]'); if (b) { pdSec = b.dataset.pdgo; renderPosts(); $('#posts').scrollIntoView({ block: 'start', behavior: 'smooth' }); } });
+  setInterval(() => { const before = JSON.stringify(PDC); pdLoad(); if (JSON.stringify(PDC) !== before) { pdSave(); renderPosts(); } }, 60e3);
+
   try {
     if (window.caches) caches.open(NC).then(c => c.match(NU)).then(r => r ? r.json() : null).then(saved => {
       if (nMerge(saved) && typeof fnCur !== 'undefined' && fnCur && $('#fnPanel') && !$('#fnPanel').hidden) fnOpen(fnCur);
@@ -1220,7 +1250,7 @@
       if (items.length) groups.push(['Operations Guide', items.slice(0, 8)]);
     }
     if (hrm.length) groups.push(['Henderson Rules', hrm.slice(0, 6).map(r => `<button class="sp-item" data-jump="hr-${r[0]}"><span class="k">${r[0]}</span><span class="v">${esc(r[1])}<small>Henderson Rule ${r[0]}</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['numbers', 'Important Numbers', 'phone numbers extensions ext directory contacts emergency 911 b&g custodial nurse hr it'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['posts', 'Post Assignments', 'post assignments post duties sector ida john frank patrol detex doors memo 29 checklist a building b building c building adam boy charlie'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['numbers', 'Important Numbers', 'phone numbers extensions ext directory contacts emergency 911 b&g custodial nurse hr it'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);
