@@ -52,6 +52,7 @@
     <a href="#meals" class="chip">Meals</a>
     <a href="#tourlog" class="chip">Tour Log</a>
     <a href="#buildings" class="chip">Buildings</a>
+    <a href="#numbers" class="chip">Important Numbers</a>
     <a href="#clubs" class="chip">Club Rooms</a>
     <a href="#uniform" class="chip">Uniform</a>
     <a href="#summons" class="chip">Summons</a>
@@ -106,7 +107,7 @@
     <div class="vip-grid" id="vipGrid"></div>
     <h3 class="sub">Additional Key Personnel</h3>
     <div class="vip-grid" id="staffGrid"></div>
-    <figure class="doc"><button class="doc-btn" data-view="vip-sheet" data-cap="VIP Name Designation with Photo Reference"><img loading="lazy" src="./img/vip-sheet.jpg" width="1200" height="1600" alt="Original VIP Name Designation sheet"><span class="doc-tag">View original sheet</span></button></figure>
+    <figure class="doc"><button class="doc-btn" data-view="vip-sheet" data-cap="VIP Name Designation with Photo Reference"><img loading="lazy" src="./img/vip-sheet.jpg" width="1401" height="3417" alt="Original VIP Name Designation sheet"><span class="doc-tag">View original sheet</span></button></figure>
   </section>
 
   <section id="radio" class="sec">
@@ -239,6 +240,20 @@
     <div id="bldList" class="bld-list"></div>
     <h3 class="bld-sub">Outside contacts</h3>
     <div id="outside" class="bld-list"></div>
+  </section>
+
+  <section id="numbers" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">Phone list</p>
+      <h2>Important Numbers</h2>
+      <p class="lede">Four-digit numbers are campus extensions. Tap a full phone number to call it.</p>
+    </div>
+    <a class="nm-911" href="tel:911"><span>Emergency line</span><b>1-911</b><small>Dial 1 for an outside line, then 911</small></a>
+    <label class="search search-lg" for="nmQ">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="nmQ" type="search" autocomplete="off" placeholder="Name, office or number: nurse, plumber, 6650…" aria-label="Filter important numbers">
+    </label>
+    <div id="nmList" class="nm-list"></div>
   </section>
 
   <section id="clubs" class="sec">

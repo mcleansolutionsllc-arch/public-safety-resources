@@ -1011,6 +1011,19 @@
   $('#ogQ').addEventListener('input', () => { clearTimeout(ogT); ogT = setTimeout(ogSearch, 160); });
   $('#ogQ').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 
+  /* ---------- Important numbers ---------- */
+  const NM = C.numbers;
+  const nmId = (g, n) => 'nm-' + (g + '-' + n).replace(/\W+/g, '').toLowerCase();
+  const nmNum = x => { const d = x.replace(/\D/g, ''); return d.length >= 10 ? `<a class="nm-n tel" href="tel:${d}">${esc(x)}</a>` : `<span class="nm-n ext"><i>ext</i>${esc(x)}</span>`; };
+  function renderNumbers(q = '') {
+    q = q.trim().toLowerCase(); const qd = q.replace(/\D/g, '');
+    const hit = (g, r) => !q || (g + ' ' + r[0]).toLowerCase().includes(q) || (qd.length >= 2 && r[1].some(x => x.replace(/\D/g, '').includes(qd)));
+    const out = NM.map(([g, , rows]) => { const rs = rows.filter(r => hit(g, r)); return rs.length ? `<div class="nm-grp"><h3>${esc(g)}</h3>${rs.map(r => `<div class="nm-row${r[2] ? ' key' : ''}" id="${nmId(g, r[0])}"><span class="nm-name">${esc(r[0])}</span><span class="nm-nums">${r[1].map(nmNum).join('')}</span></div>`).join('')}</div>` : ''; }).join('');
+    $('#nmList').innerHTML = out || `<p class="sp-empty">No numbers match “${esc(q)}”.</p>`;
+  }
+  renderNumbers();
+  $('#nmQ').addEventListener('input', e => renderNumbers(e.target.value));
+
   /* ---------- Club rooms ---------- */
   const CR = C.clubRooms; const roomId = c => 'room-' + c.replace(/\W+/g, '');
   function renderRooms(q = '') {
@@ -1184,6 +1197,8 @@
     const rooms = CR.floors.flatMap(f => f[1]).filter(r => m(r[0], r[1]) || r[0].replace(/\W/g, '').toLowerCase() === qn.replace(/\W/g, ''));
     const blds = BL.filter(b => m(b[0], b[1], b[2], ...b[4]));
     if (blds.length) groups.push(['Buildings', blds.slice(0, 8).map(b => `<button class="sp-item" data-jump="${bldId(b[0])}"><span class="k">${esc(b[4].join('/') || '—')}</span><span class="v"><b>${esc(b[0])}</b><small>Sector ${esc(b[1])} · ${esc(b[2])}</small></span></button>`)]);
+    const nms = []; if (ql.length > 1) NM.forEach(([g, , rows]) => rows.forEach(r => { if ((g + ' ' + r[0]).toLowerCase().includes(ql) || (qn.replace(/\D/g, '').length >= 3 && r[1].some(x => x.replace(/\D/g, '').includes(qn.replace(/\D/g, ''))))) nms.push([g, r]); }));
+    if (nms.length) groups.push(['Important numbers', nms.slice(0, 8).map(([g, r]) => `<button class="sp-item" data-jump="${nmId(g, r[0])}"><span class="k">${esc(r[1][0])}</span><span class="v">${esc(r[0])}<small>${esc(g)}${r[1].length > 1 ? ' · also ' + esc(r[1].slice(1).join(', ')) : ''}</small></span></button>`)]);
     if (rooms.length) groups.push(['C-Building club rooms', rooms.slice(0, 8).map(r => `<button class="sp-item" data-jump="${roomId(r[0])}"><span class="k">${esc(r[0])}</span><span class="v">${esc(r[1])}</span></button>`)]);
     if (ql.length > 2) {
       const staff = []; TM.forEach(t => t.groups.forEach(g => g.rows.forEach(r => { if (r[0].toLowerCase().includes(ql) && !/overtime|^sector|dreamland officer|firewatch|meal relief/i.test(r[0])) staff.push([t, r]); })));
@@ -1205,7 +1220,7 @@
       if (items.length) groups.push(['Operations Guide', items.slice(0, 8)]);
     }
     if (hrm.length) groups.push(['Henderson Rules', hrm.slice(0, 6).map(r => `<button class="sp-item" data-jump="hr-${r[0]}"><span class="k">${r[0]}</span><span class="v">${esc(r[1])}<small>Henderson Rule ${r[0]}</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['numbers', 'Important Numbers', 'phone numbers extensions ext directory contacts emergency 911 b&g custodial nurse hr it'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);
