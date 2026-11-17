@@ -50,6 +50,7 @@
     <a href="#fieldnotes" class="chip">Field Notes</a>
     <a href="#tours" class="chip">Tour Master</a>
     <a href="#meals" class="chip">Meals</a>
+    <a href="#tourlog" class="chip">Tour Log</a>
     <a href="#buildings" class="chip">Buildings</a>
     <a href="#clubs" class="chip">Club Rooms</a>
     <a href="#uniform" class="chip">Uniform</a>
@@ -215,6 +216,16 @@
     <div id="mlPanel" role="tabpanel"></div>
   </section>
 
+  <section id="tourlog" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">Supervisor tour update</p>
+      <h2>Evening Tour Log</h2>
+      <p class="lede">Fill in the log as the tour goes, then email it. Your entries stay on this phone, and officers, posts and standing roll call items carry over to the next log.</p>
+    </div>
+    <div class="tl-top"><button type="button" class="btn" id="tlNew">New log for today</button><button type="button" class="mini" id="tlReset">Reset template</button></div>
+    <div id="tlForm" class="tl-form"></div>
+  </section>
+
   <section id="buildings" class="sec">
     <div class="sec-head">
       <p class="eyebrow">Sectors &amp; extensions</p>
@@ -374,6 +385,22 @@
   </div>
 </div>
 
+<div class="sheet" id="tlSheet" hidden role="dialog" aria-modal="true" aria-labelledby="tlPrevTitle">
+  <div class="sheet-scrim" data-close></div>
+  <div class="sheet-body rp-sheet">
+    <div class="sheet-grab" data-close></div>
+    <div class="sheet-head">
+      <div><p class="eyebrow">Evening tour log</p><h3 id="tlPrevTitle">Log preview</h3></div>
+      <button class="icon-btn dark" data-close aria-label="Close"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="rp-body" id="tlPrevBody"></div>
+    <div class="rp-actions">
+      <button class="btn primary" data-tlp="mail">Email log</button>
+      <button class="btn" data-tlp="share">Share…</button>
+      <button class="btn" data-tlp="doc">Download Word</button>
+    </div>
+  </div>
+</div>
 <div class="sheet" id="reportSheet" hidden role="dialog" aria-modal="true" aria-labelledby="rpTitle">
   <div class="sheet-scrim" data-close></div>
   <div class="sheet-body rp-sheet">

@@ -303,6 +303,7 @@ window.CONTENT = {
       ['FRANK', [['BOY'], ['LINCOLN'], ['CENTRAL'], ['CHARLIE'], ['FRANK', 'self']]],
       ['JOHN', [['MARY'], ['GEORGE', 'day'], ['ADAM'], ['DAVID'], ['JOHN', 'self']]]
     ],
+    fri: { start: '1130', relief: ['MOBILE', 'R1'], posts: ['PETER 1', 'PETER 2'] },
     friday: 'On Fridays, Day Tour MOBILE or R1 conducts the PETER 1 / PETER 2 meals beginning at 1130 hrs.',
     notes: [
       'Times are subject to change based on tour operations and response needs. In general, follow this schedule barring any emergency.',
@@ -311,6 +312,7 @@ window.CONTENT = {
     ],
     authority: 'The Dispatcher, regardless of rank, has the authority to enforce these instructions.'
   };
+  C.tourLog = { defaults: {"tour": "1500X2300", "date": "", "weather": "", "color": "", "ret": "", "retManual": false, "cmd": "Sgt. M. Pinzon and Lt. Gumbs", "rc": "Uniform line inspection was conducted and no discrepancies were found", "rcList": "As per Chief Bernabe, if a student / staff / faculty id card does not work at the turnstiles make sure to check the BBTS system for any restrictions before granting access.\nAs per Chief Bernabe, lobbies are required to continue providing masks for people who wish to wear them. Officers are still to count the masks as part of their daily post inventory.\nAnyone who needs assistance with Sector Mary building (429 Grand Concourse), contact the building super Mr. Edwin at (347)-273-3513.", "att": [{"p": "Central", "o": "CSA Pierre-louis", "sc": 0}, {"p": "Adam", "o": "S/O Asibu", "sc": 0}, {"p": "Boy", "o": "S/O Mohammed", "sc": 0}, {"p": "Charlie", "o": "S/O Ortega", "sc": 0}, {"p": "David", "o": "S/O Joseph", "sc": 0}, {"p": "Lincoln", "o": "S/O Mensah", "sc": 0}, {"p": "George", "o": "S/O Kezire", "sc": 0}, {"p": "", "o": "Sgt Pinzon", "sc": 0}, {"p": "Ida", "o": "CSA Okorie", "sc": 0}, {"p": "Frank", "o": "CSA Al Mahmud", "sc": 0}, {"p": "John", "o": "PO Rivera", "sc": 0}, {"p": "Mobile", "o": "PO McPherson", "sc": 0}, {"p": "R1", "o": "PO McLean", "sc": 0}, {"p": "Prow 1", "o": "S/O Odunaike", "sc": 0}, {"p": "Prow 2", "o": "S/O Babajida", "sc": 0}, {"p": "Clip 1", "o": "S/O Abdoulaye", "sc": 0}, {"p": "Clip 2", "o": "S/O White", "sc": 0}, {"p": "Mary", "o": "S/O Washington", "sc": 0}], "ka": "", "ot": "", "swaps": "", "absent": "", "late": "", "inc": "", "trans": "None", "cback": "CSA Al Mahmud", "misc": "", "km": {"ein": "Briefing room", "eout": "Briefing room", "win": "Briefing room", "wout": "Briefing room", "fin": "Briefing room", "fout": "Briefing room", "sfrom": "Key Box", "sto": "Key Box"}, "to": ""} };
 C.fieldNotes = [
     { id: 'aided', name: 'Aided', fields: [...who,
         { k: 'injury', l: 'Injured body part / illness', ph: 'injured their left ankle' },

@@ -130,7 +130,9 @@
   let mlTour = mlCur() || 'day';
   function renderMeals() {
     const live = mlCur(), fri = new Date().getDay() === 5;
-    $('#mlTabs').innerHTML = ML.tours.map(t => `<button class="tab${t.id === mlTour ? ' on' : ''}" role="tab" aria-selected="${t.id === mlTour}" data-ml="${t.id}">${t.id === live ? '<span class="live">● On now</span>' : ''}<b>${t.name}</b><small>Meals begin ${t.start} hrs</small></button>`).join('');
+    $('#mlTabs').innerHTML = ML.tours.map(t => `<button class="tab${t.id === mlTour ? ' on' : ''}" role="tab" aria-selected="${t.id === mlTour}" data-ml="${t.id}">${t.id === live ? '<span class="live">● On now</span>' : ''}<b>${t.name}</b><small>Meals begin ${t.start} hrs</small></button>`).join('') +
+      `<button class="tab${mlTour === 'fri' ? ' on' : ''}" role="tab" aria-selected="${mlTour === 'fri'}" data-ml="fri">${fri ? '<span class="live">● Today</span>' : ''}<b>Friday PETER</b><small>Begins ${ML.fri.start} hrs</small></button>`;
+    if (mlTour === 'fri') { mlFriday(fri); return; }
     const t = ML.tours.find(x => x.id === mlTour), day = t.id === 'day';
     const relief = ML.relief.map(([who, posts]) => {
       const list = posts.filter(p => p[1] !== 'day' || day);
@@ -146,7 +148,20 @@
       <p class="ml-auth">${esc(ML.authority)}</p>
       <p class="ml-src">${esc(ML.memo)} · ${esc(ML.date)} · ${esc(ML.eff)}.</p>`;
   }
+  function mlFriday(fri) {
+    const F = ML.fri, d = new Date(), add = (5 - d.getDay() + 7) % 7;
+    const nx = new Date(d.getFullYear(), d.getMonth(), d.getDate() + add);
+    const when = fri ? 'Today' : `Next Friday · ${String(nx.getMonth() + 1).padStart(2, '0')}/${String(nx.getDate()).padStart(2, '0')}/${nx.getFullYear()}`;
+    $('#mlPanel').innerHTML = `<div class="tm-meta"><span><b>Fridays · Day Tour</b> · PETER meals begin <b>${F.start} hrs</b></span><span>${when}</span></div>
+      <div class="ml-grid ml-one"><div class="ml-col"><h3><span>Relief</span>${F.relief.join(' or ')}</h3><ol>${F.posts.map((p, i) => `<li><i>${i + 1}</i><b>${p}</b><small>${i === 0 ? `starts ${F.start} hrs` : 'next in order — time not set in memo'}</small></li>`).join('')}</ol></div>
+      <div class="ml-fx ml-big"><b>PETER 1 / PETER 2</b><span>${F.start} hrs</span><small>Fridays, Day Tour only. Covered by ${F.relief.join(' or ')}.</small></div></div>
+      <h4 class="ml-h">Rest of the Friday Day Tour</h4>
+      <p class="ml-skip">The regular Day Tour order still runs from 1030 hrs (FRANK and JOHN reliefs), with IDA at 1300 hrs and MOBILE at 1330 hrs when JOHN returns. <button type="button" class="linkish" data-ml="day">See Day Tour order</button></p>
+      <p class="ml-auth">${esc(ML.authority)}</p>
+      <p class="ml-src">${esc(ML.memo)} · ${esc(ML.date)}. The memo sets only the 1130 hrs start for PETER 1 / PETER 2; times can change based on tour operations.</p>`;
+  }
   renderMeals();
+  $('#mlPanel').addEventListener('click', e => { const b = e.target.closest('[data-ml]'); if (b) { mlTour = b.dataset.ml; renderMeals(); $('#meals').scrollIntoView({ block: 'start', behavior: 'smooth' }); } });
   $('#mlTabs').addEventListener('click', e => { const b = e.target.closest('[data-ml]'); if (b) { mlTour = b.dataset.ml; renderMeals(); } });
   let mlLive = mlCur(), mlDow = new Date().getDay();
   setInterval(() => { const c = mlCur(), d = new Date().getDay(); if (c !== mlLive || d !== mlDow) { mlLive = c; mlDow = d; renderMeals(); } }, 60e3);
@@ -701,6 +716,184 @@
     else if (act === 'copy') copy(rpText(d), 'Report copied');
   });
 
+  /* ---------- Tour Log (Supervisor Tour Update) ---------- */
+  // Fillable evening tour log. The draft is kept on this phone (cache storage + window.name)
+  // so posts, officers and standing roll-call items carry over to the next log.
+  const TLU = './__tourlog.json';
+  const TL0 = C.tourLog;
+  const tlBlank = () => JSON.parse(JSON.stringify(TL0.defaults));
+  let TL = tlBlank(); TL.date = todayISO();
+  const tlPut = () => {
+    wnSet('tl', TL);
+    try { if (window.caches) caches.open(NC).then(c => c.put(TLU, new Response(JSON.stringify(TL), { headers: { 'Content-Type': 'application/json' } }))).catch(() => {}); } catch (e) {}
+  };
+  let tlT; const tlSave = () => { clearTimeout(tlT); tlT = setTimeout(tlPut, 250); };
+  const tlTake = o => { if (o && typeof o === 'object' && Array.isArray(o.att)) { TL = { ...tlBlank(), ...o, km: { ...tlBlank().km, ...(o.km || {}) } }; return true; } return false; };
+  tlTake(wnGet().tl);
+  const WDL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const tlDateObj = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3])) : null; };
+  const tlLong = d => d ? `${WDL[d.getUTCDay()]}, ${MN[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}` : '';
+  const tlRetAuto = () => { const d = tlDateObj(TL.date); return d ? tlLong(rdReturn(d)) : ''; };
+  const tlRet = () => TL.retManual ? TL.ret : tlRetAuto();
+  const tlSC = () => TL.att.reduce((a, r) => a + (parseInt(r.sc, 10) || 0), 0);
+  const tlSCt = () => TL.scManual ? (parseInt(TL.scT, 10) || 0) : tlSC();
+  const tlSCupd = () => { const i = $('#tlSC'); if (!i) return; if (!TL.scManual) i.value = tlSC(); else $('#tlSCn').innerHTML = `typed in · posts add up to ${tlSC()} <button type="button" class="linkish" data-tl="scauto">use sum</button>`; };
+  const tlLines = s => (s || '').split('\n').map(x => x.replace(/^\s*[•\-*]\s*/, '').trim()).filter(Boolean);
+  const tlOr = (s, d = 'None') => (s || '').trim() || d;
+  const KM = [['e', 'East'], ['w', 'West'], ['f', 'Frank']];
+
+  function tlField(k, l, ph, type, extra) {
+    return `<label class="tl-f"><span>${l}</span>${type === 'area' ? `<textarea data-t="${k}" rows="${extra || 3}" placeholder="${esc(ph || '')}">${esc(TL[k] || '')}</textarea>` : `<input data-t="${k}" type="${type || 'text'}" value="${esc(TL[k] || '')}" placeholder="${esc(ph || '')}" autocomplete="off">`}</label>`;
+  }
+  function tlRender() {
+    const el = $('#tlForm'); if (!el) return;
+    el.innerHTML = `
+      <div class="tl-card"><h3>Tour</h3>
+        <div class="tl-row">${tlField('tour', 'Tour', '1500X2300')}${tlField('date', 'Date', '', 'date')}</div>
+        <p class="tl-long" id="tlLong">${esc(tlLong(tlDateObj(TL.date)))}</p>
+        <div class="tl-wx"><label class="tl-f"><span>Weather</span><input data-t="weather" value="${esc(TL.weather || '')}" placeholder="55°F Mostly Clear" autocomplete="off"></label><button type="button" class="mini" data-tl="wx">Get current</button></div>
+        ${tlField('color', 'NYPD color of the day', 'N/A')}
+          <label class="tl-f"><span>Summons return date${TL.retManual ? ' <button type="button" class="linkish" data-tl="retauto">use schedule</button>' : ' <em>auto</em>'}</span><input data-t="ret" value="${esc(tlRet())}" autocomplete="off"></label>
+        ${tlField('cmd', 'Tour commander', 'Sgt. M. Pinzon and Lt. Gumbs')}
+      </div>
+      <div class="tl-card"><h3>Roll call information</h3>
+        ${tlField('rc', 'Summary', 'Uniform line inspection was conducted and no discrepancies were found', 'area', 2)}
+        ${tlField('rcList', 'Roll call items (one per line)', 'As per Chief…', 'area', 6)}
+      </div>
+      <div class="tl-card"><h3>Attendance / service calls</h3>
+        <div class="tl-att-h"><span>Post · officer</span><span>Service calls</span></div>
+        <div id="tlAtt">${TL.att.map((r, i) => `<div class="tl-att" data-ai="${i}">
+            <div class="tl-po"><input class="tl-p" data-a="p" value="${esc(r.p)}" placeholder="Post" aria-label="Post" autocomplete="off"><input data-a="o" value="${esc(r.o)}" placeholder="Rank / name" aria-label="Officer for ${esc(r.p || 'row')}" autocomplete="off"></div>
+            <div class="tl-sc"><button type="button" data-sc="-1" aria-label="One fewer service call">−</button><input data-a="sc" inputmode="numeric" value="${esc(String(r.sc ?? ''))}" aria-label="Service calls for ${esc(r.p || 'row')}"><button type="button" data-sc="1" aria-label="One more service call">+</button></div>
+            <button type="button" class="tl-x" data-tl="rm" aria-label="Remove row">×</button></div>`).join('')}</div>
+        <button type="button" class="mini" data-tl="add">+ Add row</button>
+        <div class="tl-tot"><label><span>Service calls</span><input data-t="scT" id="tlSC" inputmode="numeric" value="${esc(String(tlSCt()))}"><small id="tlSCn">${TL.scManual ? `typed in · posts add up to ${tlSC()} <button type="button" class="linkish" data-tl="scauto">use sum</button>` : 'auto: sum of the SC column'}</small></label>
+          <label><span>Key assists</span><input data-t="ka" inputmode="numeric" value="${esc(TL.ka || '')}" placeholder="0"></label></div>
+        ${tlField('ot', 'Working overtime / reason (one per line)', 'Sgt Pinzon: working for Sgt Coverage', 'area', 3)}
+        <div class="tl-row3">${tlField('swaps', 'Swaps', 'None')}${tlField('absent', 'Absent', 'None')}${tlField('late', 'Late', 'None')}</div>
+      </div>
+      <div class="tl-card"><h3>Incident reports / category / time of occurrence</h3>
+        ${tlField('inc', 'One per line', 'None', 'area', 4)}
+      </div>
+      <div class="tl-card"><h3>Miscellaneous tour information</h3>
+        ${tlField('trans', 'Transportation', 'None')}
+        ${tlField('cback', 'Central back up (Active Shooter / Major Emergency)', 'CSA Al Mahmud')}
+        ${tlField('misc', 'Other items (one per line)', 'Driving details, etc.', 'area', 3)}
+      </div>
+      <div class="tl-card"><h3>Key exchange</h3>
+        <h4 class="tl-sub">Masters key exchange</h4>
+        <div class="tl-key-h"><span></span><span>Received in</span><span>Turned over</span></div>
+        ${KM.map(([k, n]) => `<div class="tl-key"><b>${n}</b><input data-k="${k}in" value="${esc(TL.km[k + 'in'] || '')}" aria-label="${n} received in" autocomplete="off"><input data-k="${k}out" value="${esc(TL.km[k + 'out'] || '')}" aria-label="${n} turned over" autocomplete="off"></div>`).join('')}
+        <h4 class="tl-sub">Sgt. masters key exchange (#1)</h4>
+        <div class="tl-key"><b>#1</b><input data-k="sfrom" value="${esc(TL.km.sfrom || '')}" aria-label="Sergeant key received from" placeholder="From" autocomplete="off"><input data-k="sto" value="${esc(TL.km.sto || '')}" aria-label="Sergeant key turned over to" placeholder="To" autocomplete="off"></div>
+      </div>
+      <div class="tl-card tl-send"><h3>Send</h3>
+        ${tlField('to', 'Email to (separate with commas)', 'name@cuny.edu, name2@cuny.edu', 'email')}
+        <div class="tl-btns"><button type="button" class="btn primary" data-tl="mail">Email log</button><button type="button" class="btn" data-tl="share">Share…</button></div>
+        <div class="tl-btns3"><button type="button" class="mini" data-tl="doc">Word file</button><button type="button" class="mini" data-tl="copy">Copy text</button><button type="button" class="mini" data-tl="preview">Preview</button></div>
+        <p class="fn-hint">Email opens your mail app with the log in the message. Share can attach a Word copy on phones that support it.</p>
+      </div>`;
+    $('#tlShare') && ($('#tlShare').hidden = !navigator.share);
+  }
+  const tlSubject = () => `Supervisor Tour Update — ${TL.tour || 'Tour'} — ${tlLong(tlDateObj(TL.date)) || TL.date}`;
+  function tlText() {
+    const L = ['SUPERVISOR TOUR UPDATE', '', `TOUR: ${TL.tour || ''}`, `DATE: ${tlLong(tlDateObj(TL.date))}`, `WEATHER: ${TL.weather || ''}`, `NYPD COLOR OF THE DAY: ${tlOr(TL.color, 'N/A')}`, `SUMMONS RETURN DATE: ${tlRet()}`, `TOUR COMMANDER: ${TL.cmd || ''}`, ''];
+    L.push(`ROLL CALL INFORMATION: ${TL.rc || ''}`); tlLines(TL.rcList).forEach(x => L.push(`  • ${x}`)); L.push('');
+    L.push('ATTENDANCE / SERVICE CALLS:');
+    TL.att.filter(r => r.p || r.o).forEach(r => L.push(`  ${r.p ? r.p + ': ' : ''}${r.o || '—'}  SC: ${parseInt(r.sc, 10) || 0}`));
+    L.push('', `SERVICE CALLS: ${tlSCt()}    KEY ASSISTS: ${tlOr(TL.ka, '0')}`, '', 'WORKING OVERTIME / REASON:');
+    (tlLines(TL.ot).length ? tlLines(TL.ot) : ['None']).forEach(x => L.push(`  ${x}`));
+    L.push('', `SWAPS: ${tlOr(TL.swaps)}`, `ABSENT: ${tlOr(TL.absent)}`, `LATE: ${tlOr(TL.late)}`, '', 'INCIDENT REPORTS / CATEGORY / TIME OF OCCURRENCE:');
+    (tlLines(TL.inc).length ? tlLines(TL.inc) : ['None']).forEach(x => L.push(`  ${x}`));
+    L.push('', 'MISCELLANEOUS TOUR INFORMATION (Driving details etc.):', `  • Transportation: ${tlOr(TL.trans)}`, `  • Central back up in the event of an Active Shooter/Major Emergency incident: ${tlOr(TL.cback, '')}`);
+    tlLines(TL.misc).forEach(x => L.push(`  • ${x}`));
+    L.push('', 'KEY EXCHANGE:', 'Masters Key Exchange (Received in / Turned over):');
+    KM.forEach(([k, n]) => L.push(`  ${n}: ${TL.km[k + 'in'] || '—'} / ${TL.km[k + 'out'] || '—'}`));
+    L.push('Sgt. Masters Key Exchange:', `  #1: From: ${TL.km.sfrom || '—'}  To: ${TL.km.sto || '—'}`);
+    return L.join('\n');
+  }
+  function tlHTML() {
+    const e = esc, li = a => a.map(x => `<li>${e(x)}</li>`).join('');
+    const box = (h, body) => `<table class="bx" width="100%" cellpadding="6"><tr><td><p class="h"><u>${h}</u></p>${body}</td></tr></table><p class="sp">&nbsp;</p>`;
+    const rows = TL.att.filter(r => r.p || r.o); const per = Math.ceil(rows.length / 3) || 1;
+    const cols = [0, 1, 2].map(c => rows.slice(c * per, c * per + per));
+    const att = `<table width="100%" class="att">${Array.from({ length: per }, (_, i) => `<tr>${cols.map(col => { const r = col[i]; return r ? `<td><b>${e(r.p ? r.p + ':' : '')}</b></td><td>${e(r.o)}</td><td class="sc">SC: ${parseInt(r.sc, 10) || 0}</td>` : '<td></td><td></td><td></td>'; }).join('')}</tr>`).join('')}</table>`;
+    return `<p class="t">Dept. of Public Safety</p><p class="t2"><u>SUPERVISOR TOUR UPDATE</u></p>
+      <p>TOUR: <u>${e(TL.tour || '')}</u><br>DATE: ${e(tlLong(tlDateObj(TL.date)))}<br>WEATHER: <u>${e(TL.weather || '')}</u><br>NYPD color of the day: <u>${e(tlOr(TL.color, 'N/A'))}</u><br>Summons Return Date: ${e(tlRet())}<br>Tour Commander: <u>${e(TL.cmd || '')}</u></p>
+      ${box('ROLL CALL INFORMATION:', `<p class="rc">${e(TL.rc || '')}</p><ul>${li(tlLines(TL.rcList))}</ul>`)}
+      ${box('ATTENDANCE/SERVICE CALLS:', `${att}<p><b>SERVICE CALLS:</b> ${tlSCt()} &nbsp;&nbsp; <b>KEY ASSISTS:</b> ${e(tlOr(TL.ka, '0'))}</p><p><b><u>WORKING OVERTIME / REASON</u></b>:</p><p>${(tlLines(TL.ot).length ? tlLines(TL.ot) : ['None']).map(e).join('<br>')}</p><p><b><u>Swaps:</u></b> ${e(tlOr(TL.swaps))} &nbsp; <b><u>Absent:</u></b> ${e(tlOr(TL.absent))} &nbsp; <b><u>Late:</u></b> ${e(tlOr(TL.late))}</p>`)}
+      ${box('INCIDENT REPORTS / CATEGORY / TIME OF OCCURRENCE:', `<p>${(tlLines(TL.inc).length ? tlLines(TL.inc) : ['None']).map(e).join('<br>')}</p>`)}
+      ${box('MISCELLANEOUS TOUR INFORMATION (Driving details etc.):', `<ul><li><b>Transportation:</b> ${e(tlOr(TL.trans))}</li><li><b>Central back up in the event of an Active Shooter/Major Emergency incident:</b> ${e(TL.cback || '')}</li>${li(tlLines(TL.misc))}</ul>`)}
+      ${box('KEY EXCHANGE:', `<p><b><u>Masters Key Exchange:</u></b></p><table width="100%"><tr><td width="50%"><b><u>Received in</u></b></td><td><b><u>Turned Over</u></b></td></tr>${KM.map(([k, n]) => `<tr><td><b>${n}:</b> ${e(TL.km[k + 'in'] || '')}</td><td><b>${n}:</b> ${e(TL.km[k + 'out'] || '')}</td></tr>`).join('')}</table><p><b><u>Sgt. Masters Key Exchange:</u></b></p><table width="100%"><tr><td width="50%"><b>#1:</b> From: <b>${e(TL.km.sfrom || '')}</b></td><td>To: <b>${e(TL.km.sto || '')}</b></td></tr></table>`)}`;
+  }
+  const tlCSS = 'body{font-family:"Times New Roman",serif;font-size:11pt;color:#000}.t{font-size:16pt;text-align:center;margin:0}.t2{font-size:15pt;text-align:center;color:#c00000;margin:0 0 10pt}.bx{border:1px solid #000;border-collapse:collapse}.h{font-weight:bold;font-size:12pt;margin:0 0 6pt}.rc{color:#c00000;font-size:12pt}.att td{font-size:10pt;padding:1pt 4pt 1pt 0}.sc{color:#c00000}.sp{margin:0;font-size:6pt}ul{margin:4pt 0 4pt 18pt;padding:0}li{margin:2pt 0}';
+  const TLIN = { t: 'font-size:16pt;text-align:center;margin:0', t2: 'font-size:15pt;text-align:center;color:#c00000;margin:0 0 10pt', bx: 'border:1px solid #000;border-collapse:collapse', h: 'font-weight:bold;font-size:12pt;margin:0 0 6pt', rc: 'color:#c00000;font-size:12pt', att: 'font-size:10pt', sc: 'color:#c00000', sp: 'margin:0;font-size:6pt' };
+  const tlInline = h => h.replace(/class="(\w+)"/g, (m, c) => TLIN[c] ? `class="${c}" style="${TLIN[c]}"` : m).replace(/<table class="bx"([^>]*)>/g, '<table class="bx"$1 border="1">');
+  const tlDoc = () => `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(tlSubject())}</title><style>${tlCSS}</style></head><body>${tlInline(tlHTML())}</body></html>`;
+  const tlFile = () => `Tour-Log_${(TL.tour || 'tour').replace(/\W+/g, '')}_${TL.date || todayISO()}`;
+  const WXC = { 0: 'Clear', 1: 'Mostly Clear', 2: 'Partly Cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Light Drizzle', 53: 'Drizzle', 55: 'Heavy Drizzle', 56: 'Freezing Drizzle', 57: 'Freezing Drizzle', 61: 'Light Rain', 63: 'Rain', 65: 'Heavy Rain', 66: 'Freezing Rain', 67: 'Freezing Rain', 71: 'Light Snow', 73: 'Snow', 75: 'Heavy Snow', 77: 'Snow Grains', 80: 'Rain Showers', 81: 'Rain Showers', 82: 'Heavy Showers', 85: 'Snow Showers', 86: 'Heavy Snow Showers', 95: 'Thunderstorm', 96: 'Thunderstorm with Hail', 99: 'Thunderstorm with Hail' };
+  async function tlWeather() {
+    toast('Getting Bronx weather…');
+    try {
+      const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=40.8176&longitude=-73.9273&current=temperature_2m,weather_code,is_day&temperature_unit=fahrenheit&timezone=America%2FNew_York');
+      const j = await r.json(); const c = j.current;
+      const w = WXC[c.weather_code] || '';
+      TL.weather = `${Math.round(c.temperature_2m)}°F ${w}`.trim(); tlSave();
+      const i = $('#tlForm input[data-t="weather"]'); if (i) i.value = TL.weather; toast('Weather filled in');
+    } catch (e) { toast('Weather not available — type it in'); }
+  }
+  function tlPreview() {
+    $('#tlPrevBody').innerHTML = `<div class="tl-prev">${tlHTML()}</div>`;
+    openSheet($('#tlSheet'));
+  }
+  const tlForm = $('#tlForm');
+  tlForm.addEventListener('input', e => {
+    const t = e.target, row = t.closest('[data-ai]');
+    if (t.dataset.t) {
+      const k = t.dataset.t; TL[k] = t.value;
+      if (k === 'ret') TL.retManual = true;
+      if (k === 'scT') { t.value = t.value.replace(/\D/g, ''); TL.scT = t.value; TL.scManual = t.value !== '' && +t.value !== tlSC(); if (!TL.scManual) TL.scT = ''; $('#tlSCn').innerHTML = TL.scManual ? `typed in · posts add up to ${tlSC()} <button type="button" class="linkish" data-tl="scauto">use sum</button>` : 'auto: sum of the SC column'; }
+      if (k === 'date') { $('#tlLong').textContent = tlLong(tlDateObj(TL.date)); if (!TL.retManual) { const r = $('#tlForm input[data-t="ret"]'); if (r) r.value = tlRetAuto(); } }
+    } else if (t.dataset.k) TL.km[t.dataset.k] = t.value;
+    else if (row && t.dataset.a) { const r = TL.att[+row.dataset.ai]; r[t.dataset.a] = t.dataset.a === 'sc' ? t.value.replace(/\D/g, '') : t.value; if (t.dataset.a === 'sc') { t.value = r.sc; tlSCupd(); } }
+    tlSave();
+  });
+  tlForm.addEventListener('click', e => {
+    const sc = e.target.closest('[data-sc]');
+    if (sc) { const row = sc.closest('[data-ai]'), r = TL.att[+row.dataset.ai]; r.sc = Math.max(0, (parseInt(r.sc, 10) || 0) + +sc.dataset.sc); $('input[data-a="sc"]', row).value = r.sc; tlSCupd(); tlSave(); return; }
+    const b = e.target.closest('[data-tl]'); if (!b) return; const a = b.dataset.tl;
+    if (a === 'add') { TL.att.push({ p: '', o: '', sc: 0 }); tlSave(); tlRender(); const rows = $$('#tlAtt .tl-att'); rows[rows.length - 1].querySelector('input').focus(); }
+    else if (a === 'rm') { const i = +b.closest('[data-ai]').dataset.ai, r = TL.att[i]; if ((r.p || r.o) && !confirm(`Remove ${r.p || r.o}?`)) return; TL.att.splice(i, 1); tlSave(); tlRender(); }
+    else if (a === 'scauto') { TL.scManual = false; TL.scT = ''; tlSave(); tlRender(); }
+    else if (a === 'retauto') { TL.retManual = false; TL.ret = ''; tlSave(); tlRender(); }
+    else if (a === 'wx') tlWeather();
+    else if (a === 'mail') {
+      const to = (TL.to || '').split(/[,;\s]+/).filter(Boolean).join(',');
+      const ml = document.createElement('a'); ml.href = `mailto:${encodeURIComponent(to).replace(/%2C/g, ',').replace(/%40/g, '@')}?subject=${encodeURIComponent(tlSubject())}&body=${encodeURIComponent(tlText())}`; document.body.appendChild(ml); ml.click(); ml.remove();
+    }
+    else if (a === 'share') {
+      let f = null; try { f = new File([tlDoc()], tlFile() + '.doc', { type: 'application/msword' }); } catch (x) {}
+      const data = f && navigator.canShare && navigator.canShare({ files: [f] }) ? { title: tlSubject(), text: tlText(), files: [f] } : { title: tlSubject(), text: tlText() };
+      if (navigator.share) navigator.share(data).catch(() => {}); else { copy(tlText(), 'Sharing not available here — log text copied'); }
+    }
+    else if (a === 'doc') { rpDownload(tlFile() + '.doc', 'application/msword', tlDoc()); toast('Word file downloaded'); }
+    else if (a === 'copy') copy(tlText(), 'Tour log copied');
+    else if (a === 'preview') tlPreview();
+  });
+  $('#tlNew').addEventListener('click', () => {
+    if (!confirm('Start a new log for today? Officers, posts, roll call items, key exchange and recipients are kept. Service calls, overtime, swaps, incidents and weather are cleared.')) return;
+    const keep = TL;
+    TL = { ...keep, date: todayISO(), weather: '', color: '', ret: '', retManual: false, scT: '', scManual: false, ka: '', ot: '', swaps: '', absent: '', late: '', inc: '', misc: '', att: keep.att.map(r => ({ ...r, sc: 0 })) };
+    tlPut(); tlRender(); toast('New log started');
+  });
+  $('#tlReset').addEventListener('click', () => {
+    if (!confirm('Reset the whole log to the original template? This clears everything you entered.')) return;
+    TL = tlBlank(); TL.date = todayISO(); tlPut(); tlRender(); toast('Log reset');
+  });
+  $('#tlSheet').addEventListener('click', e => { const b = e.target.closest('[data-tlp]'); if (!b) return; closeSheet($('#tlSheet')); const x = tlForm.querySelector(`[data-tl="${b.dataset.tlp}"]`); if (x) x.click(); });
+  tlRender();
+  try { if (window.caches) caches.open(NC).then(c => c.match(TLU)).then(r => r ? r.json() : null).then(o => { if (o && !wnGet().tl && tlTake(o)) tlRender(); }).catch(() => {}); } catch (e) {}
+
   /* ---------- Henderson Rules ---------- */
   const HR = C.henderson;
   function hrRender(q = '') {
@@ -1012,7 +1205,7 @@
       if (items.length) groups.push(['Operations Guide', items.slice(0, 8)]);
     }
     if (hrm.length) groups.push(['Henderson Rules', hrm.slice(0, 6).map(r => `<button class="sp-item" data-jump="hr-${r[0]}"><span class="k">${r[0]}</span><span class="v">${esc(r[1])}<small>Henderson Rule ${r[0]}</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);
