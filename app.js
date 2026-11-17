@@ -1041,6 +1041,22 @@
   $('#ogQ').addEventListener('input', () => { clearTimeout(ogT); ogT = setTimeout(ogSearch, 160); });
   $('#ogQ').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 
+  /* ---------- Radio assignments ---------- */
+  const RA = C.radios;
+  const raId = n => 'ra-' + n.replace(/\W+/g, '').toLowerCase();
+  const raBld = n => { const m = /^Sector (\w+)/.exec(n); if (!m) return ''; const b = C.buildings.find(x => x[1].split(/\s*\/\s*/).some(s => s.toLowerCase() === m[1].toLowerCase())); return b ? b[0] : ''; };
+  function renderRadios(q = '') {
+    q = q.trim().toLowerCase();
+    const html = RA.groups.map(([g, rows]) => {
+      const list = rows.filter(r => !q || [g, r[0], r[1], r[2], raBld(r[0])].join(' ').toLowerCase().includes(q));
+      return list.length ? `<div class="nm-grp"><h3>${esc(g)} <span class="ra-ct">${list.length}</span></h3>${list.map(r => { const b = raBld(r[0]); return `<button type="button" class="nm-row ra-row" id="${raId(r[0])}" data-ra="${esc(r[0])} · Radio ${r[1]} · S/N ${esc(r[2])}"><span class="nm-name">${esc(r[0])}${b ? `<small class="ra-b">${esc(b)}</small>` : ''}</span><span class="ra-r"><span class="nm-n ext"><i>radio</i>${r[1]}</span><small class="ra-sn">S/N ${esc(r[2])}</small></span></button>`; }).join('')}</div>` : '';
+    }).join('');
+    $('#raList').innerHTML = html || '<p class="meta">No radios match.</p>';
+  }
+  renderRadios();
+  $('#raQ').addEventListener('input', e => renderRadios(e.target.value));
+  $('#raList').addEventListener('click', e => { const b = e.target.closest('[data-ra]'); if (b) copy(b.dataset.ra, 'Radio info copied'); });
+
   /* ---------- Important numbers ---------- */
   const NM = C.numbers;
   const nmId = (g, n) => 'nm-' + (g + '-' + n).replace(/\W+/g, '').toLowerCase();
@@ -1228,6 +1244,8 @@
     const blds = BL.filter(b => m(b[0], b[1], b[2], ...b[4]));
     if (blds.length) groups.push(['Buildings', blds.slice(0, 8).map(b => `<button class="sp-item" data-jump="${bldId(b[0])}"><span class="k">${esc(b[4].join('/') || '—')}</span><span class="v"><b>${esc(b[0])}</b><small>Sector ${esc(b[1])} · ${esc(b[2])}</small></span></button>`)]);
     const nms = []; if (ql.length > 1) NM.forEach(([g, , rows]) => rows.forEach(r => { if ((g + ' ' + r[0]).toLowerCase().includes(ql) || (qn.replace(/\D/g, '').length >= 3 && r[1].some(x => x.replace(/\D/g, '').includes(qn.replace(/\D/g, ''))))) nms.push([g, r]); }));
+    const ras = q.length < 2 ? [] : C.radios.groups.flatMap(([g, rows]) => rows.map(r => [g, r])).filter(([g, r]) => m(r[0], String(r[1]), r[2]));
+    if (ras.length) groups.push(['Radio assignments', ras.slice(0, 8).map(([g, r]) => `<button class="sp-item" data-jump="${raId(r[0])}"><span class="k">${r[1]}</span><span class="v">${esc(r[0])}<small>${esc(g)} · S/N ${esc(r[2])}</small></span></button>`)]);
     if (nms.length) groups.push(['Important numbers', nms.slice(0, 8).map(([g, r]) => `<button class="sp-item" data-jump="${nmId(g, r[0])}"><span class="k">${esc(r[1][0])}</span><span class="v">${esc(r[0])}<small>${esc(g)}${r[1].length > 1 ? ' · also ' + esc(r[1].slice(1).join(', ')) : ''}</small></span></button>`)]);
     if (rooms.length) groups.push(['C-Building club rooms', rooms.slice(0, 8).map(r => `<button class="sp-item" data-jump="${roomId(r[0])}"><span class="k">${esc(r[0])}</span><span class="v">${esc(r[1])}</span></button>`)]);
     if (ql.length > 2) {
@@ -1250,7 +1268,7 @@
       if (items.length) groups.push(['Operations Guide', items.slice(0, 8)]);
     }
     if (hrm.length) groups.push(['Henderson Rules', hrm.slice(0, 6).map(r => `<button class="sp-item" data-jump="hr-${r[0]}"><span class="k">${r[0]}</span><span class="v">${esc(r[1])}<small>Henderson Rule ${r[0]}</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['posts', 'Post Assignments', 'post assignments post duties sector ida john frank patrol detex doors memo 29 checklist a building b building c building adam boy charlie'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['numbers', 'Important Numbers', 'phone numbers extensions ext directory contacts emergency 911 b&g custodial nurse hr it'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['radios', 'Radio Assignments', 'radio assignments radio numbers serial supervisors equipment peace officers csa sector'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['posts', 'Post Assignments', 'post assignments post duties sector ida john frank patrol detex doors memo 29 checklist a building b building c building adam boy charlie'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['numbers', 'Important Numbers', 'phone numbers extensions ext directory contacts emergency 911 b&g custodial nurse hr it'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);

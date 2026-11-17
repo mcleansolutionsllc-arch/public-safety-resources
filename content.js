@@ -541,4 +541,12 @@ C.fieldNotes = [
       ] }
     ]
   };
+  C.radios = {
+    title: 'Radio Assignment Chart for Supervisors',
+    groups: [
+      ['Peace officers', [['DeJesus', 232, 'R229110117'], ['Figueroa', 258, 'R229074727'], ['Jackson', 229, 'R225133365'], ['McLean', 213, 'R225133328'], ['McPherson', 260, 'R229074729'], ['Ortiz', 235, 'R229110120'], ['Perez', 216, 'R225133331'], ['Rivera', 214, 'R225133329']]],
+      ['Campus security assistants', [['Al Mahmud', 254, 'R229074723'], ['Hernandez (PT)', 252, 'R229074721'], ['Igwe', 228, 'R21N070985'], ['Shahidullah', 257, 'R229074726'], ['Pierre-Louis', 230, 'R225133267'], ['Rodriguez', 227, 'R21N070982'], ['Ruvel', 259, 'R229074728'], ['Serrano', 218, 'R225133353'], ['Turay', 256, 'R229074725'], ['Ullah', 251, 'R226200511'], ['Villa', 253, 'R229074722']]],
+      ['Sector radio assignments', [['Sector Adam', 247, 'R226160863'], ['Sector Boy', 245, 'R225133363'], ['Sector Charlie', 242, 'R225133364'], ['Sector David', 255, 'R229074724'], ['Sector George', 201, '16714D0056'], ['Sector King / Lincoln', 249, 'R226160885'], ['Sector Peter 1', 196, '19411C0017'], ['Sector Peter 2', 205, '12608A0360'], ['Sector Eddie 1', 204, '11706A0245'], ['Sector Eddie 2', 209, '13727A0334'], ['Sector Mary', 207, '11706A0250'], ['Sector Nora', 203, '14N06A0659'], ['PS Dispatcher (Facilities Use)', 236, 'R22911021']]]
+    ]
+  };
 })();
