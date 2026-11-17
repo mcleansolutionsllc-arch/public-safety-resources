@@ -177,6 +177,18 @@
       <h2>Field Notes</h2>
       <p class="lede">Tap an incident type, fill in what you have, and the narrative writes itself. Copy it into your report when you're done.</p>
     </div>
+    <div class="ids" id="idScan">
+      <div class="ids-top">
+        <div><h3>ID Scan</h3><p>Photograph the front of an ID. The text is read and saved as an entry you can classify and drop into a report. The photo itself is not kept, and saved entries delete automatically 24 hours after they're saved.</p></div>
+      </div>
+      <div class="ids-btns">
+        <button type="button" class="btn primary" id="idsCam"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 10h4M14 14h4M6 16h6"/></svg>Scan ID text</button>
+        <button type="button" class="btn" id="idsMan">Enter manually</button>
+        <input type="file" id="idsFile" accept="image/*" capture="environment" hidden>
+      </div>
+      <div id="idsEdit" class="ids-edit" hidden></div>
+      <div id="idsList"></div>
+    </div>
     <div class="fn-grid" id="fnGrid" role="tablist" aria-label="Incident type"></div>
     <div id="fnPanel" class="fn-panel" hidden></div>
   </section>

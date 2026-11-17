@@ -194,16 +194,19 @@
   /* Notified times/details persist across reloads: browser cache storage when available,
      with the tab's window.name as a backup (survives reload in the same tab). */
   const NK = 'psNotified1', NC = 'ps-notes', NU = './__notified.json';
+  const WN = 'psStore2:';  // window.name holds { n: notified, ids: saved ID entries } for this tab
+  const wnGet = () => { try { if (window.name.startsWith(WN)) return JSON.parse(window.name.slice(WN.length)) || {}; if (window.name.startsWith(NK + ':')) return { n: JSON.parse(window.name.slice(NK.length + 1)) }; } catch (e) {} return {}; };
+  const wnSet = (k, val) => { try { const o = wnGet(); o[k] = val; window.name = WN + JSON.stringify(o); } catch (e) {} };
   const nKeep = k => k === 'nAg' || k.startsWith('n_');
   const nMerge = saved => { if (!saved || typeof saved !== 'object') return false; let any = false; Object.keys(saved).forEach(id => { fnStore[id] = { ...saved[id], ...(fnStore[id] || {}) }; any = true; }); return any; };
   const nPut = () => {
     const out = {};
     Object.keys(fnStore).forEach(id => { const o = {}; Object.keys(fnStore[id] || {}).forEach(k => { if (nKeep(k)) o[k] = fnStore[id][k]; }); if (Object.keys(o).length) out[id] = o; });
     const j = JSON.stringify(out);
-    try { window.name = NK + ':' + j; } catch (e) {}
+    wnSet('n', out);
     try { if (window.caches) caches.open(NC).then(c => c.put(NU, new Response(j, { headers: { 'Content-Type': 'application/json' } }))).catch(() => {}); } catch (e) {}
   };
-  try { if (window.name.startsWith(NK + ':')) nMerge(JSON.parse(window.name.slice(NK.length + 1))); } catch (e) {}
+  nMerge(wnGet().n);
   try {
     if (window.caches) caches.open(NC).then(c => c.match(NU)).then(r => r ? r.json() : null).then(saved => {
       if (nMerge(saved) && typeof fnCur !== 'undefined' && fnCur && $('#fnPanel') && !$('#fnPanel').hidden) fnOpen(fnCur);
@@ -279,7 +282,7 @@
     { k: 'cPhone', l: 'Phone', t: 'tel', ph: '718-555-0123' },
     { k: 'cAddr', l: 'Address', ph: 'Street, City, ZIP' }
   ];
-  let fnCur = null;
+  let fnCur = null, idHook = null;
   function larcenyClass(v) {
     const val = parseFloat(String(v.value || '').replace(/[^\d.]/g, ''));
     const gl = v.gl || [];
@@ -337,6 +340,7 @@
     return `<div class="fn-f${f.half ? ' half' : ''}${f.full ? ' full' : ''}" data-k="${f.k}">${lab}<input id="${id}" type="${type}" data-k="${f.k}" value="${esc(val || '')}" placeholder="${esc(f.ph || '')}" autocomplete="off"></div>`;
   }
   function fnGrid() {
+    if (idHook) idHook();
     $('#fnGrid').innerHTML = FN.map(t => {
       const c = t.larceny ? 'PL 155.25 / 155.30' : t.code ? 'PL ' + t.code[0] : 'Narrative';
       return `<button type="button" class="fn-btn${fnCur === t.id ? ' on' : ''}" data-fn="${t.id}" role="tab" aria-selected="${fnCur === t.id}"><b>${esc(t.name)}</b><small>${esc(t.sub || c)}</small>${fnHas(t.id) ? '<i class="fn-dot" title="Draft saved"></i>' : ''}</button>`;
@@ -413,6 +417,189 @@
   $('#fnPanel').addEventListener('input', () => fnGrid(), { passive: true });
   window.fnOpenType = id => fnOpen(id, true);
 
+
+  /* ---------- Field notes → ID scan ---------- */
+  // Reads the printed text on an ID card (text reader loaded from jsDelivr on first use),
+  // fills the fields and saves the text. The photo itself is never stored.
+  const IDC = ['Student', 'Faculty', 'Staff', 'Contractor / Vendor', 'Visitor', 'Non-affiliate', 'Other CUNY'];
+  const IDT = ['Driver license', 'State ID', 'CUNY ID', 'Other ID'];
+  const IDU = './__ids.json';
+  let IDS = [], idEdit = null, idRaw = '';
+  const idPut = () => {
+    wnSet('ids', IDS);
+    try { if (window.caches) caches.open(NC).then(c => c.put(IDU, new Response(JSON.stringify(IDS), { headers: { 'Content-Type': 'application/json' } }))).catch(() => {}); } catch (e) {}
+  };
+  const idMerge = arr => { if (!Array.isArray(arr)) return; arr.forEach(x => { if (x && x.id && !IDS.some(y => y.id === x.id)) IDS.push(x); }); IDS.sort((a, b) => b.ts - a.ts); };
+  const ID_TTL = 24 * 3600e3;
+  const idPrune = () => { const n = IDS.length, cut = Date.now() - ID_TTL; IDS = IDS.filter(x => x.ts > cut); if (IDS.length !== n) { idPut(); return true; } return false; };
+  idMerge(wnGet().ids);
+  try { if (window.caches) caches.open(NC).then(c => c.match(IDU)).then(r => r ? r.json() : null).then(a => { const n = IDS.length; idMerge(a); idPrune(); if (IDS.length !== n) idList(); }).catch(() => {}); } catch (e) {}
+
+  const tcase = x => (x || '').toLowerCase().replace(/(^|[\s'\-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).trim();
+  function parseText(t, codes) {
+    const T = t.replace(/[|]/g, 'I'); const U = T.toUpperCase();
+    const o = { type: /CUNY|CITY UNIVERSITY|COLLEGE/.test(U) ? 'CUNY ID' : /DRIVER/.test(U) ? 'Driver license' : /IDENTIFICATION|NON.?DRIVER|ID CARD/.test(U) ? 'State ID' : 'Other ID' };
+    const dates = [...U.matchAll(/(\d{2})[\/\-.](\d{2})[\/\-.](\d{4})/g)].map(m => ({ s: `${m[1]}/${m[2]}/${m[3]}`, y: +m[3], i: m.index }));
+    const near = (re) => { const m = re.exec(U); if (!m) return ''; const d = dates.find(x => x.i >= m.index && x.i - m.index < 30); return d ? d.s : ''; };
+    o.dob = near(/\bDOB\b|BIRTH/); o.exp = near(/\bEXP/);
+    const yr = new Date().getFullYear();
+    if (!o.dob) { const d = dates.filter(x => x.y < yr - 12).sort((a, b) => a.y - b.y)[0]; if (d) o.dob = d.s; }
+    if (!o.exp) { const d = dates.filter(x => x.y >= yr).sort((a, b) => b.y - a.y)[0]; if (d) o.exp = d.s; }
+    const em = /EMPL\s*ID[\s:#.]*([0-9]{8})/.exec(U) || /\bID(?:\s*(?:NO|NUMBER|#))?[\s:#.]+([A-Z0-9][A-Z0-9 ]{5,14}[A-Z0-9])\b/.exec(U);
+    o.num = em ? em[1].replace(/\s+/g, ' ').trim() : ((codes || []).find(c => /^\d{6,}$/.test(c)) || (/\b(\d{3} \d{3} \d{3}|\d{8,9})\b/.exec(U) || [])[1] || '');
+    const sx = /\bSEX[\s:]*([MF])\b/.exec(U); if (sx) o.sex = sx[1] === 'M' ? 'Male' : 'Female';
+    const stop = /UNIVERSITY|CUNY|COLLEGE|NEW YORK|STATE|DRIVER|LICENSE|IDENTIFICATION|CLASS|\bDOB\b|\bEXP|ISSUED|\bSEX\b|EYES|\bHT\b|\bUSA\b|STUDENT|STAFF|FACULTY|EMPLOYEE|EMPL|VALID|SIGNATURE|ORGAN|DONOR|\bID\b|CARD|DEPARTMENT|VISITOR/;
+    const lines = T.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const isNm = l => { const u = l.toUpperCase(), up = l.replace(/[^A-Z]/g, '').length, al = l.replace(/[^A-Za-z]/g, '').length; return /^[A-Z][A-Z'\-., ]{1,30}$/.test(u) && !stop.test(u) && al >= 3 && up / al >= .7; };
+    const ni = lines.findIndex(isNm);
+    const nm = ni < 0 ? [] : [lines[ni]].concat(isNm(lines[ni + 1] || '') ? [lines[ni + 1]] : []).map(l => l.toUpperCase());
+    if (nm.length) {
+      const a = nm[0].replace(/^\d+\s*/, '');
+      if (a.includes(',')) { const [l, f] = a.split(','); o.last = tcase(l); const fp = (f || '').trim().split(/\s+/); o.first = tcase(fp[0]); o.mid = tcase(fp.slice(1).join(' ')); }
+      else if (nm[1]) { o.last = tcase(a); const fp = nm[1].split(/\s+/); o.first = tcase(fp[0]); o.mid = tcase(fp.slice(1).join(' ')); }
+      else { const w = a.split(/\s+/); o.first = tcase(w[0]); o.last = tcase(w.slice(1).join(' ')); }
+    }
+    const zi = lines.findIndex(l => /\b[A-Z]{2}\s+\d{5}(-\d{4})?\b/.test(l.toUpperCase()));
+    if (zi > 0 && /^\d+\s+\S/.test(lines[zi - 1])) o.addr = tcase(lines[zi - 1]) + ', ' + lines[zi].replace(/\b([A-Za-z][A-Za-z ]+?)(,?\s+)([A-Z]{2})\s+(\d{5})/, (m, c, sp, st, z) => tcase(c) + ', ' + st + ' ' + z);
+    o.cls = /FACULTY/.test(U) ? 'Faculty' : /\bSTAFF\b|EMPLOYEE/.test(U) ? 'Staff' : /STUDENT/.test(U) ? 'Student' : /VISITOR/.test(U) ? 'Visitor' : '';
+    if (/NEW YORK/.test(U) && o.type !== 'CUNY ID') o.state = 'NY';
+    return o;
+  }
+  const loadScript = (src, test) => new Promise((res, rej) => { if (test()) return res(); const s = document.createElement('script'); s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('load')); document.head.appendChild(s); });
+  const TJ = 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/';
+  let ocrW = null;
+  const ocrWorker = prog => ocrW || (ocrW = loadScript(TJ + 'tesseract.min.js', () => !!window.Tesseract).then(() => Tesseract.createWorker('eng', 1, {
+    workerPath: TJ + 'worker.min.js', corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0',
+    langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int', cacheMethod: 'none',
+    logger: m => prog && prog(m)
+  })).catch(e => { ocrW = null; throw e; }));
+  let ocrProg = null;
+  const toCanvas = async (file, max) => {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c;
+    } finally { URL.revokeObjectURL(url); }
+  };
+  const idStatus = (msg, busy) => { const el = $('#idsStatus'); el.hidden = !msg; el.classList.toggle('busy', !!busy); el.textContent = msg || ''; };
+  async function idScanFile(file) {
+    idOpenEditor(null);
+    idStatus('Loading the text reader…', true);
+    let raw = '';
+    try {
+      const c = await toCanvas(file, 2000);
+      // grayscale + contrast stretch helps the reader with glossy cards
+      const x = c.getContext('2d'), im = x.getImageData(0, 0, c.width, c.height), d = im.data;
+      let lo = 255, hi = 0; for (let i = 0; i < d.length; i += 16) { const g = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10; if (g < lo) lo = g; if (g > hi) hi = g; }
+      const k = 255 / Math.max(40, hi - lo); for (let i = 0; i < d.length; i += 4) { const g = Math.max(0, Math.min(255, ((d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10 - lo) * k)); d[i] = d[i + 1] = d[i + 2] = g; } x.putImageData(im, 0, 0);
+      ocrProg = m => { if (m.status === 'recognizing text') idStatus(`Reading the text… ${Math.round(m.progress * 100)}%`, true); else if (/load|initializ/.test(m.status)) idStatus('Loading the text reader (first use takes a few seconds)…', true); };
+      const w = await ocrWorker(m => ocrProg && ocrProg(m));
+      const r = await w.recognize(c);
+      raw = (r.data.text || '').replace(/\n{3,}/g, '\n\n').trim();
+    } catch (e) {
+      idStatus('Could not read the card. The text reader needs an internet connection; you can also type the details below.', false);
+      return;
+    }
+    if (!raw) { idStatus('No text found. Retake the photo flat, in good light, filling the frame — or type the details below.', false); return; }
+    const data = parseText(raw, []);
+    idRaw = raw; idFill(data);
+    const got = ['last', 'first', 'dob', 'num'].filter(k => data[k]).length;
+    idStatus(got >= 3 ? 'Text read. Check the details, pick a classification, then save.' : 'Text read, but some details were unclear. Check the read text and fill in the rest, then save.', false);
+  }
+  const idFields = [['last', 'Last name'], ['first', 'First name'], ['mid', 'Middle'], ['dob', 'Date of birth', 'MM/DD/YYYY'], ['num', 'ID number'], ['state', 'Issuing state', 'NY'], ['exp', 'Expires', 'MM/DD/YYYY'], ['addr', 'Address', 'Street, City, State ZIP']];
+  function idOpenEditor(entry) {
+    idEdit = entry ? entry.id : null; idRaw = entry ? (entry.raw || '') : '';
+    const e = entry || {};
+    $('#idsEdit').hidden = false;
+    $('#idsEdit').innerHTML = `<div id="idsStatus" class="ids-status" role="status" hidden></div>
+      <div class="ids-grp"><span class="ids-lab">ID type</span><div class="ids-seg" data-g="type">${IDT.map(t => `<button type="button" class="ids-opt${e.type === t ? ' on' : ''}" data-v="${t}">${t}</button>`).join('')}</div></div>
+      <div class="ids-fields">${idFields.map(([k, l, ph]) => `<label class="ids-f ids-${k}"><span>${l}</span><input data-id="${k}" value="${esc(e[k] || '')}" placeholder="${ph || ''}" autocomplete="off"${k === 'dob' || k === 'exp' ? ' inputmode="numeric"' : ''}></label>`).join('')}
+        <div class="ids-f ids-sex"><span>Sex</span><div class="ids-seg" data-g="sex">${['Male', 'Female', 'X'].map(t => `<button type="button" class="ids-opt${e.sex === t ? ' on' : ''}" data-v="${t}">${t}</button>`).join('')}</div></div></div>
+      <div class="ids-grp"><span class="ids-lab">Classification</span><div class="ids-seg ids-cls" data-g="cls">${IDC.map(t => `<button type="button" class="ids-opt${e.cls === t ? ' on' : ''}" data-v="${t}">${t}</button>`).join('')}</div></div>
+      <label class="ids-f"><span>Notes</span><input data-id="note" value="${esc(e.note || '')}" placeholder="optional — e.g. found in C Building lobby"></label>
+      <label class="ids-f ids-rawf"${idRaw ? '' : ' hidden'}><span>Text read from the ID (saved with the entry)</span><textarea id="idsRawTxt" rows="6" spellcheck="false"></textarea></label>
+      <div class="ids-act"><button type="button" class="btn primary" data-ids="save">${entry ? 'Save changes' : 'Save entry'}</button><button type="button" class="mini" data-ids="cancel">Cancel</button></div>`;
+    $('#idsRawTxt').value = idRaw;
+    $('#idsEdit').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  function idFill(d) {
+    const ed = $('#idsEdit');
+    Object.entries(d).forEach(([k, val]) => {
+      const i = $(`input[data-id="${k}"]`, ed); if (i && val && !i.value) i.value = val;
+      const g = $(`.ids-seg[data-g="${k}"]`, ed); if (g && val) $$('.ids-opt', g).forEach(b => b.classList.toggle('on', b.dataset.v === val));
+    });
+    const r = $('.ids-rawf', ed); r.hidden = !idRaw; $('#idsRawTxt').value = idRaw;
+  }
+  function idRead() {
+    const ed = $('#idsEdit'), o = {};
+    $$('input[data-id]', ed).forEach(i => { o[i.dataset.id] = i.value.trim(); });
+    $$('.ids-seg', ed).forEach(g => { const b = $('.ids-opt.on', g); o[g.dataset.g] = b ? b.dataset.v : ''; });
+    o.raw = $('#idsRawTxt').value.trim().slice(0, 4000);
+    return o;
+  }
+  const idName = e => [e.last, [e.first, e.mid].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const idWhen = ts => { const d = new Date(ts); return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} hrs`; };
+  const idClsKey = c => (c || '').toLowerCase().replace(/[^a-z]+/g, '-');
+  function idList() {
+    const el = $('#idsList'); if (!el) return;
+    idPrune();
+    const t = FN.find(x => x.id === fnCur);
+    const canP = t && t.perp, canC = t && t.fields.some(f => f.k === 'gender');
+    const who = t ? (t.id === 'weapon' || t.id === 'trespass' ? 'Subject' : 'Perpetrator') : '';
+    el.innerHTML = IDS.length ? `<div class="ids-lh"><h4>Saved IDs <span>${IDS.length}</span></h4><button type="button" class="mini" data-ids="clear">Clear all</button></div>` + IDS.map(e => `<div class="ids-card" data-eid="${e.id}">
+        <div class="ids-ct"><b>${esc(idName(e) || 'Name not entered')}</b>${e.cls ? `<span class="ids-badge c-${idClsKey(e.cls)}">${esc(e.cls)}</span>` : '<span class="ids-badge none">Not classified</span>'}</div>
+        <p>${[e.type, e.num && '#' + esc(e.num), e.state, e.dob && 'DOB ' + esc(e.dob)].filter(Boolean).join(' · ')}</p>
+        ${e.addr ? `<p>${esc(e.addr)}</p>` : ''}${e.note ? `<p class="ids-note">${esc(e.note)}</p>` : ''}${e.raw ? `<details class="ids-rt"><summary>Text read from ID</summary><pre>${esc(e.raw)}</pre></details>` : ''}
+        <small>Saved ${idWhen(e.ts)} · deletes automatically ${idWhen(e.ts + ID_TTL)}</small>
+        <div class="ids-cbtn">${canP ? `<button type="button" class="mini" data-ids="useP">Use as ${who}</button>` : ''}${canC ? `<button type="button" class="mini" data-ids="useC">Use as ${t.id === 'aided' ? 'Aided' : 'Complainant'}</button>` : ''}<button type="button" class="mini" data-ids="copy">Copy</button><button type="button" class="mini" data-ids="edit">Edit</button><button type="button" class="mini danger" data-ids="del">Delete</button></div>
+      </div>`).join('') + (t ? '' : '<p class="fn-hint">Open an incident type below to drop a saved ID into its form.</p>') : '';
+  }
+  const idAffOf = c => ['Student', 'Faculty', 'Staff'].includes(c) ? 'this campus' : c === 'Other CUNY' ? 'other CUNY' : c ? 'not affiliated' : '';
+  const idLine = e => [idName(e), e.cls, e.type && `${e.state ? e.state + ' ' : ''}${e.type.toLowerCase()}${e.num ? ' #' + e.num : ''}`, e.dob && 'DOB ' + e.dob, e.sex, e.addr].filter(Boolean).join('; ');
+  function idUse(e, as) {
+    const t = FN.find(x => x.id === fnCur); if (!t) return;
+    const v = fnLoad(t.id), aff = idAffOf(e.cls), has = k => t.fields.some(f => f.k === k);
+    if (as === 'P') {
+      v.kUnk = ''; v.kName = idName(e); if (e.addr) v.kAddr = e.addr;
+      if (has('saff')) { if (aff) v.saff = aff; const r = { Student: 'Student', Faculty: 'Faculty', Staff: 'Staff', Visitor: 'Visitor' }[e.cls]; if (r) v.srole = r; } else if (aff) v.kAff = aff;
+    } else {
+      v.cName = idName(e); if (e.addr) v.cAddr = e.addr;
+      if (has('aff') && (aff === 'this campus' || aff === 'other CUNY')) v.aff = aff;
+      if (has('gender') && e.sex) v.gender = e.sex === 'Male' ? 'male' : e.sex === 'Female' ? 'female' : v.gender;
+    }
+    const idn = `ID on file: ${[e.state, e.type].filter(Boolean).join(' ')}${e.num ? ' #' + e.num : ''}${e.dob ? ', DOB ' + e.dob : ''}.`;
+    if (e.type || e.num) v.notes = (v.notes || '').includes(idn) ? v.notes : [(v.notes || '').trim(), idn].filter(Boolean).join('\n');
+    fnSave(t.id, v); fnOpen(t.id);
+    toast(`${idName(e) || 'ID'} added to ${t.name}`);
+    const sec = $(as === 'P' ? '#fnPanel .fn-perp' : '#fnPanel .fn-grp:has(input[data-k="cName"])') || $('#fnPanel');
+    requestAnimationFrame(() => sec.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  }
+  $('#idsCam').addEventListener('click', () => { $('#idsFile').value = ''; $('#idsFile').click(); ocrWorker(m => ocrProg && ocrProg(m)).catch(() => {}); });
+  $('#idsMan').addEventListener('click', () => idOpenEditor(null));
+  $('#idsFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) idScanFile(f); });
+  $('#idScan').addEventListener('click', e => {
+    const o = e.target.closest('.ids-opt');
+    if (o) { const on = o.classList.contains('on'); $$('.ids-opt', o.parentElement).forEach(b => b.classList.remove('on')); if (!on) o.classList.add('on'); return; }
+    const a = e.target.closest('[data-ids]'); if (!a) return;
+    const act = a.dataset.ids, card = a.closest('[data-eid]'), ent = card && IDS.find(x => x.id === card.dataset.eid);
+    if (act === 'save') {
+      const o2 = idRead();
+      if (!o2.last && !o2.first && !o2.num && !o2.raw) { toast('Enter at least a name or ID number'); return; }
+      if (idEdit) { const x = IDS.find(y => y.id === idEdit); Object.assign(x, o2); }
+      else IDS.unshift({ id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ts: Date.now(), ...o2 });
+      idPut(); $('#idsEdit').hidden = true; $('#idsEdit').innerHTML = ''; idEdit = null; idList(); toast('ID entry saved');
+    } else if (act === 'cancel') { $('#idsEdit').hidden = true; $('#idsEdit').innerHTML = ''; idEdit = null; }
+    else if (act === 'edit' && ent) idOpenEditor(ent);
+    else if (act === 'del' && ent) { if (confirm(`Delete the saved ID for ${idName(ent) || 'this entry'}?`)) { IDS = IDS.filter(x => x !== ent); idPut(); idList(); toast('Deleted'); } }
+    else if (act === 'clear') { if (confirm('Delete all saved IDs from this phone?')) { IDS = []; idPut(); idList(); toast('Saved IDs cleared'); } }
+    else if (act === 'copy' && ent) { navigator.clipboard && navigator.clipboard.writeText(idLine(ent)).then(() => toast('Copied'), () => toast('Copy not available')); }
+    else if ((act === 'useP' || act === 'useC') && ent) idUse(ent, act === 'useP' ? 'P' : 'C');
+  });
+  idList(); idHook = idList;
+  setInterval(() => { if (idPrune()) { idList(); toast('Expired ID entries were deleted'); } }, 60e3);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && idPrune()) idList(); });
 
   /* ---------- Field notes → incident report ---------- */
   function fnReportData() {
