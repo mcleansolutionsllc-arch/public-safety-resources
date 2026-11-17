@@ -293,7 +293,25 @@ window.CONTENT = {
     { k: 'pDesc', l: 'Property description', t: 'area', ph: 'Item, color, brand, case, serial # — e.g. Grey Apple MacBook Pro laptop, Blk carrying case' },
     { k: 'value', l: 'Approx. value ($)', t: 'num', ph: '900' }
   ];
-  C.fieldNotes = [
+    C.meals = {
+    memo: 'Memo No. 39 · Meal times', date: 'November 10, 2026', eff: 'Effective immediately, daily for the Day and Evening tours',
+    tours: [
+      { id: 'day', name: 'Day Tour', start: '1030', fixed: [['IDA', '1300'], ['MOBILE', '1330', 'when JOHN returns']] },
+      { id: 'eve', name: 'Evening Tour', start: '1730', fixed: [['IDA', '2000'], ['MOBILE', '2030', 'when JOHN returns']] }
+    ],
+    relief: [
+      ['FRANK', [['BOY'], ['LINCOLN'], ['CENTRAL'], ['CHARLIE'], ['FRANK', 'self']]],
+      ['JOHN', [['MARY'], ['GEORGE', 'day'], ['ADAM'], ['DAVID'], ['JOHN', 'self']]]
+    ],
+    friday: 'On Fridays, Day Tour MOBILE or R1 conducts the PETER 1 / PETER 2 meals beginning at 1130 hrs.',
+    notes: [
+      'Times are subject to change based on tour operations and response needs. In general, follow this schedule barring any emergency.',
+      'The tour supervisor may change the meal relief officer if the officer assigned to FRANK or JOHN is an armed officer.',
+      'Armed officers should always be available to respond unless it is necessary for them to conduct meals due to a manpower shortage.'
+    ],
+    authority: 'The Dispatcher, regardless of rank, has the authority to enforce these instructions.'
+  };
+C.fieldNotes = [
     { id: 'aided', name: 'Aided', fields: [...who,
         { k: 'injury', l: 'Injured body part / illness', ph: 'injured their left ankle' },
         { k: 'circ', l: 'How it happened', ph: 'slipped on the stairs between the 2nd and 3rd floor' },

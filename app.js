@@ -124,6 +124,33 @@
   });
   selectTour(activeTour);
 
+  /* ---------- Meal times ---------- */
+  const ML = C.meals;
+  const mlCur = () => { const h = new Date().getHours(); return h >= 15 && h < 23 ? 'eve' : h >= 7 && h < 15 ? 'day' : null; };
+  let mlTour = mlCur() || 'day';
+  function renderMeals() {
+    const live = mlCur(), fri = new Date().getDay() === 5;
+    $('#mlTabs').innerHTML = ML.tours.map(t => `<button class="tab${t.id === mlTour ? ' on' : ''}" role="tab" aria-selected="${t.id === mlTour}" data-ml="${t.id}">${t.id === live ? '<span class="live">● On now</span>' : ''}<b>${t.name}</b><small>Meals begin ${t.start} hrs</small></button>`).join('');
+    const t = ML.tours.find(x => x.id === mlTour), day = t.id === 'day';
+    const relief = ML.relief.map(([who, posts]) => {
+      const list = posts.filter(p => p[1] !== 'day' || day);
+      return `<div class="ml-col"><h3><span>Relief</span>${who}</h3><ol>${list.map((p, i) => `<li class="${p[1] === 'self' ? 'self' : ''}"><i>${i + 1}</i><b>${p[0]}</b>${i === 0 ? `<small>starts ${t.start} hrs</small>` : p[1] === 'self' ? '<small>own meal, last</small>' : p[1] === 'day' ? '<small>Day Tour only</small>' : ''}</li>`).join('')}</ol></div>`;
+    }).join('');
+    const geo = day ? '' : '<p class="ml-skip">GEORGE is not on the Evening Tour meal order (Day Tour only).</p>';
+    const fixed = t.fixed.map(([who, at, why]) => `<div class="ml-fx"><b>${who}</b><span>${at} hrs</span>${why ? `<small>${why}</small>` : ''}</div>`).join('');
+    $('#mlPanel').innerHTML = `<div class="tm-meta"><span><b>${t.name}</b> · meals begin <b>${t.start} hrs</b></span><span>${ML.date}</span></div>
+      <div class="ml-grid">${relief}</div>${geo}
+      <h4 class="ml-h">Set meal times</h4><div class="ml-fixed">${fixed}</div>
+      ${day ? `<div class="ml-fri${fri ? ' today' : ''}">${fri ? '<span class="live-tag">Today</span>' : '<span class="ml-tag">Fridays</span>'}<p>${esc(ML.friday)}</p></div>` : ''}
+      <h4 class="ml-h">Notes</h4><ul class="ml-notes">${ML.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+      <p class="ml-auth">${esc(ML.authority)}</p>
+      <p class="ml-src">${esc(ML.memo)} · ${esc(ML.date)} · ${esc(ML.eff)}.</p>`;
+  }
+  renderMeals();
+  $('#mlTabs').addEventListener('click', e => { const b = e.target.closest('[data-ml]'); if (b) { mlTour = b.dataset.ml; renderMeals(); } });
+  let mlLive = mlCur(), mlDow = new Date().getDay();
+  setInterval(() => { const c = mlCur(), d = new Date().getDay(); if (c !== mlLive || d !== mlDow) { mlLive = c; mlDow = d; renderMeals(); } }, 60e3);
+
   /* ---------- Buildings ---------- */
   const BL = C.buildings; const bldId = b => 'bld-' + b.replace(/\W+/g, '');
   const telHref = n => n.replace(/\D/g, '').length >= 10 ? `tel:${n.replace(/\D/g, '')}` : '';
@@ -548,7 +575,7 @@
     const t = FN.find(x => x.id === fnCur);
     const canP = t && t.perp, canC = t && t.fields.some(f => f.k === 'gender');
     const who = t ? (t.id === 'weapon' || t.id === 'trespass' ? 'Subject' : 'Perpetrator') : '';
-    el.innerHTML = IDS.length ? `<div class="ids-lh"><h4>Saved IDs <span>${IDS.length}</span></h4><button type="button" class="mini" data-ids="clear">Clear all</button></div>` + IDS.map(e => `<div class="ids-card" data-eid="${e.id}">
+    el.innerHTML = IDS.length ? `<div class="ids-lh"><h4>Saved IDs <span>${IDS.length}</span></h4><button type="button" class="mini" data-ids="clear">Clear all</button></div>` + IDS.map(e => `<div class="ids-card${e.sample ? ' is-sample' : ''}" data-eid="${e.id}">
         <div class="ids-ct"><b>${esc(idName(e) || 'Name not entered')}</b>${e.cls ? `<span class="ids-badge c-${idClsKey(e.cls)}">${esc(e.cls)}</span>` : '<span class="ids-badge none">Not classified</span>'}</div>
         <p>${[e.type, e.num && '#' + esc(e.num), e.state, e.dob && 'DOB ' + esc(e.dob)].filter(Boolean).join(' · ')}</p>
         ${e.addr ? `<p>${esc(e.addr)}</p>` : ''}${e.note ? `<p class="ids-note">${esc(e.note)}</p>` : ''}${e.raw ? `<details class="ids-rt"><summary>Text read from ID</summary><pre>${esc(e.raw)}</pre></details>` : ''}
@@ -567,7 +594,8 @@
     } else {
       v.cName = idName(e); if (e.addr) v.cAddr = e.addr;
       if (has('aff') && (aff === 'this campus' || aff === 'other CUNY')) v.aff = aff;
-      if (has('gender') && e.sex) v.gender = e.sex === 'Male' ? 'male' : e.sex === 'Female' ? 'female' : v.gender;
+      if (has('role') && ['Student', 'Faculty', 'Staff', 'Visitor'].includes(e.cls)) v.role = e.cls;
+      if (has('gender') && e.sex) v.gender = e.sex === 'Male' ? 'male' : e.sex === 'Female' ? 'female' : 'undisclosed';
     }
     const idn = `ID on file: ${[e.state, e.type].filter(Boolean).join(' ')}${e.num ? ' #' + e.num : ''}${e.dob ? ', DOB ' + e.dob : ''}.`;
     if (e.type || e.num) v.notes = (v.notes || '').includes(idn) ? v.notes : [(v.notes || '').trim(), idn].filter(Boolean).join('\n');
@@ -578,6 +606,26 @@
   }
   $('#idsCam').addEventListener('click', () => { $('#idsFile').value = ''; $('#idsFile').click(); ocrWorker(m => ocrProg && ocrProg(m)).catch(() => {}); });
   $('#idsMan').addEventListener('click', () => idOpenEditor(null));
+  // Sample EMS run: a marked test ID plus an Aided draft with EMS notified, for trying the ID → report flow.
+  $('#idsDemo').addEventListener('click', () => {
+    if (fnHas('aided') && !confirm('Replace the current Aided draft with the sample EMS run?')) return;
+    const hm = m => { const d = new Date(Date.now() - m * 60e3); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    fnSave('aided', {
+      date: todayISO(), time: hm(25), rtime: hm(0), loc: fnLocOpts()[0], locDet: '1st floor lobby',
+      injury: 'injured their right ankle', circ: 'slipped on the stairs between the 1st and 2nd floor', ems: 'Transported', hosp: 'Lincoln Hospital',
+      oCall: 'call for service', notes: 'SAMPLE — test run. Clear this draft when done.',
+      nAg: ['EMS'], n_EMS_unit: '12A', n_EMS_name: 'EMT Sample', n_EMS_shield: '0000', n_EMS_hosp: 'Lincoln Hospital',
+      n_EMS_tN: hm(22), n_EMS_t84: hm(12), n_EMS_t98: hm(3)
+    });
+    if (!IDS.some(x => x.sample)) {
+      IDS.unshift({ id: 'sample' + Date.now().toString(36), ts: Date.now(), sample: true, type: 'Driver license', last: 'Sample', first: 'Test', mid: '', dob: '01/01/2000', sex: 'Female', num: '000 000 000', state: 'NY', exp: '01/01/2030', addr: '1 Sample St, Bronx, NY 10451', cls: 'Student', note: 'SAMPLE — test entry, safe to delete',
+        raw: 'SAMPLE — NOT A REAL ID\nNEW YORK STATE DRIVER LICENSE\nID: 000 000 000\nSAMPLE\nTEST\n1 SAMPLE ST\nBRONX, NY 10451\nDOB: 01/01/2000\nSEX: F' });
+      idPut();
+    }
+    fnOpen('aided');
+    toast('Sample loaded. Tap “Use as Aided” on the sample ID.');
+    requestAnimationFrame(() => $('#idsList').scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  });
   $('#idsFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) idScanFile(f); });
   $('#idScan').addEventListener('click', e => {
     const o = e.target.closest('.ids-opt');
@@ -964,7 +1012,7 @@
       if (items.length) groups.push(['Operations Guide', items.slice(0, 8)]);
     }
     if (hrm.length) groups.push(['Henderson Rules', hrm.slice(0, 6).map(r => `<button class="sp-item" data-jump="hr-${r[0]}"><span class="k">${r[0]}</span><span class="v">${esc(r[1])}<small>Henderson Rule ${r[0]}</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);

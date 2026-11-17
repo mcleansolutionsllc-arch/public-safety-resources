@@ -49,6 +49,7 @@
     <a href="#reports" class="chip">Report Writing</a>
     <a href="#fieldnotes" class="chip">Field Notes</a>
     <a href="#tours" class="chip">Tour Master</a>
+    <a href="#meals" class="chip">Meals</a>
     <a href="#buildings" class="chip">Buildings</a>
     <a href="#clubs" class="chip">Club Rooms</a>
     <a href="#uniform" class="chip">Uniform</a>
@@ -184,6 +185,7 @@
       <div class="ids-btns">
         <button type="button" class="btn primary" id="idsCam"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 10h4M14 14h4M6 16h6"/></svg>Scan ID text</button>
         <button type="button" class="btn" id="idsMan">Enter manually</button>
+        <button type="button" class="mini ids-demo" id="idsDemo">Load sample EMS run</button>
         <input type="file" id="idsFile" accept="image/*" capture="environment" hidden>
       </div>
       <div id="idsEdit" class="ids-edit" hidden></div>
@@ -201,6 +203,16 @@
     </div>
     <div class="tabs" role="tablist" aria-label="Tour shifts" id="tourTabs"></div>
     <div id="tourPanel" role="tabpanel"></div>
+  </section>
+
+  <section id="meals" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">Staffing · Memo No. 39</p>
+      <h2>Meal Times</h2>
+      <p class="lede">Meal relief order for the Day and Evening tours. The tour running now opens by default.</p>
+    </div>
+    <div class="tabs ml-tabs" role="tablist" aria-label="Meal tour" id="mlTabs"></div>
+    <div id="mlPanel" role="tabpanel"></div>
   </section>
 
   <section id="buildings" class="sec">
