@@ -499,7 +499,16 @@
     const a = Math.max(0, i - 70), b = Math.min(x.length, i + 150);
     let t = x.slice(a, b); if (a > 0) t = '…' + t.replace(/^\S*\s/, ''); if (b < x.length) t = t.replace(/\s\S*$/, '') + '…'; return t;
   };
-  $('#ogToc').innerHTML = ['Administration', 'Patrol Procedures', 'Use of Force'].map(c => `<h3 class="sub">${c}</h3><div class="og-grid">${OGT.filter(t => t[2] === c).map(t => `<button class="og-btn" data-og="${t[0]}"><span class="og-n">${t[0]}</span><span class="og-t"><b>${esc(t[1])}</b><small>${t[5]} page${t[5] > 1 ? 's' : ''}${t[4] ? ' · Revision ' + esc(t[4]) : ''}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></button>`).join('')}</div>`).join('') + '<p class="rd-note">Text from the CUNY Public Safety Department Operations Guide (Rev. 09/18/2020). Forms are shown as text; always confirm against the current official guide.</p>';
+  const OGC = ['Administration', 'Patrol Procedures', 'Use of Force']; let ogCat = '';
+  $('#ogCats').innerHTML = [['', 'All', OGT.length], ...OGC.map(c => [c, c, OGT.filter(t => t[2] === c).length])].map(([v, l, n]) => `<button type="button" class="og-cat${v ? '' : ' on'}" data-ogcat="${v}" aria-pressed="${v ? 'false' : 'true'}">${l}<span>${n}</span></button>`).join('');
+  $('#ogCats').addEventListener('click', e => {
+    const b = e.target.closest('[data-ogcat]'); if (!b) return;
+    ogCat = b.dataset.ogcat;
+    $$('.og-cat', $('#ogCats')).forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+    $$('[data-ogsec]', $('#ogToc')).forEach(d => { d.hidden = !!ogCat && d.dataset.ogsec !== ogCat; });
+    if (ogWords($('#ogQ').value).length) ogSearch();
+  });
+  $('#ogToc').innerHTML = OGC.map(c => `<div data-ogsec="${c}"><h3 class="sub">${c}</h3><div class="og-grid">${OGT.filter(t => t[2] === c).map(t => `<button class="og-btn" data-og="${t[0]}"><span class="og-n">${t[0]}</span><span class="og-t"><b>${esc(t[1])}</b><small>${t[5]} page${t[5] > 1 ? 's' : ''}${t[4] ? ' · Revision ' + esc(t[4]) : ''}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></button>`).join('')}</div></div>`).join('') + '<p class="rd-note">Text from the CUNY Public Safety Department Operations Guide (Rev. 09/18/2020). Forms are shown as text; always confirm against the current official guide.</p>';
 
   async function ogOpen(no, bi, q) {
     const T = OGT.find(t => t[0] === no); if (!T) return;
@@ -559,14 +568,17 @@
     if (!w.length) { res.hidden = true; res.innerHTML = ''; $('#ogToc').hidden = false; return; }
     res.hidden = false; $('#ogToc').hidden = true;
     if (!OG) { res.innerHTML = '<p class="rd-note">Loading the guide…</p>'; loadOG().then(() => OG && ogSearch()); return; }
-    const [g, total] = ogFind(q); const re = ogRe(q);
-    if (!g.length) { res.innerHTML = `<p class="rd-note">No matches for “${esc(q.trim())}” in the Operations Guide.</p>`; return; }
-    res.innerHTML = `<p class="og-count">${total} match${total === 1 ? '' : 'es'} in ${g.length} instruction${g.length === 1 ? '' : 's'}</p>` + g.slice(0, 30).map(([I, th, hits]) => `<div class="card og-hit">
+    let [g] = ogFind(q); const re = ogRe(q); const all = g.length;
+    if (ogCat) g = g.filter(x => x[0].cat === ogCat);
+    const total = g.reduce((n, x) => n + x[2].length, 0), where = ogCat ? ` in ${ogCat}` : '';
+    if (!g.length) { res.innerHTML = `<p class="rd-note">No matches for “${esc(q.trim())}”${where || ' in the Operations Guide'}.${ogCat && all ? ` ${all} instruction${all === 1 ? '' : 's'} match in other categories. <button type="button" class="og-link" data-ogall>Search all categories</button>` : ''}</p>`; return; }
+    res.innerHTML = `<p class="og-count">${total} match${total === 1 ? '' : 'es'} in ${g.length} instruction${g.length === 1 ? '' : 's'}${where}</p>` + g.slice(0, 30).map(([I, th, hits]) => `<div class="card og-hit">
       <button class="og-hit-h" data-og="${I.no}"${hits.length && !th ? ` data-ob="${hits[0]}"` : ''}><span class="og-n">${I.no}</span><b>${ogHi(I.title, re)}</b><small>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'Title match'}</small></button>
       ${hits.slice(0, 3).map(i => `<button class="og-snip" data-og="${I.no}" data-ob="${i}"><small>Page ${I.b[i][1]}</small>${ogHi(ogSnip(I.b[i][2], w), re)}</button>`).join('')}
       ${hits.length > 3 ? `<button class="og-more" data-og="${I.no}" data-ob="${hits[3]}">${hits.length - 3} more in this instruction ›</button>` : ''}
     </div>`).join('');
   }
+  $('#ogRes').addEventListener('click', e => { if (e.target.closest('[data-ogall]')) $('#ogCats [data-ogcat=""]').click(); });
   $('#ogQ').addEventListener('focus', loadOG);
   $('#ogQ').addEventListener('input', () => { clearTimeout(ogT); ogT = setTimeout(ogSearch, 160); });
   $('#ogQ').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });

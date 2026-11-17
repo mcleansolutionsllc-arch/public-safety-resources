@@ -587,3 +587,12 @@ mark { background: #fff1a8; color: inherit; border-radius: 3px; padding: 0 1px; 
 @keyframes ogflash { 0%, 40% { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 6px transparent; } }
 .og-nav { grid-template-columns: 1fr 1fr; }
 .og-nav .btn:disabled { opacity: .4; }
+
+.og-cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 var(--space-4); }
+.og-cats::-webkit-scrollbar { display: none; }
+.og-cat { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: var(--text-sm); font-weight: 700; white-space: nowrap; cursor: pointer; }
+.og-cat span { font-size: 11px; font-weight: 800; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--surface-2); color: var(--muted); text-align: center; }
+.og-cat.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.og-cat.on span { background: rgba(255,255,255,.18); color: #fff; }
+@media (prefers-color-scheme: dark) { .og-cat.on { background: var(--accent); border-color: var(--accent); color: #0a1120; } .og-cat.on span { background: rgba(10,17,32,.18); color: #0a1120; } }
+.og-link { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; font-weight: 700; }
