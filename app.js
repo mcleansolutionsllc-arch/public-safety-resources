@@ -483,6 +483,94 @@
     const f = e.target.closest('.sp-item[data-fnjump]'); if (f) { e.preventDefault(); $('#q').value = ''; $('#q').blur(); closeGlobal(); fnOpen(f.dataset.fnjump, true); }
   }, true);
 
+  /* ---------- Operations Guide ---------- */
+  const OGT = [...C.opsToc].sort((a, b) => a[0] - b[0]);
+  let OG = null, ogLoading = null, ogCur = null;
+  const ogSh = $('#ogSheet');
+  const loadOG = () => ogLoading || (ogLoading = fetch('./data/opsguide.json').then(r => r.json()).then(d => {
+    OG = d; const sp = $('#searchPanel'); if (sp && !sp.hidden && $('#q').value.trim()) runGlobal(); return d;
+  }).catch(() => { ogLoading = null; }));
+  const ogWords = q => (q || '').toLowerCase().split(/\s+/).map(w => w.replace(/^[^\w#]+|[^\w]+$/g, '')).filter(w => w.length > 1);
+  const ogRe = q => { const w = ogWords(q); return w.length ? new RegExp('(' + w.map(x => esc(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi') : null; };
+  const ogHi = (x, re) => re ? esc(x).replace(re, '<mark>$1</mark>') : esc(x);
+  const ogTitleCase = x => x.toLowerCase().replace(/(^|[\s\-/(\[])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(Of|And|For|To|The|In|On|Or|A|An|By)\b/g, w => w.toLowerCase()).replace(/^./, c => c.toUpperCase()).replace(/:$/, '');
+  const ogSnip = (x, w) => {
+    const lx = x.toLowerCase(); let i = Math.min(...w.map(v => { const k = lx.indexOf(v); return k < 0 ? 1e9 : k; })); if (i === 1e9) i = 0;
+    const a = Math.max(0, i - 70), b = Math.min(x.length, i + 150);
+    let t = x.slice(a, b); if (a > 0) t = '…' + t.replace(/^\S*\s/, ''); if (b < x.length) t = t.replace(/\s\S*$/, '') + '…'; return t;
+  };
+  $('#ogToc').innerHTML = ['Administration', 'Patrol Procedures', 'Use of Force'].map(c => `<h3 class="sub">${c}</h3><div class="og-grid">${OGT.filter(t => t[2] === c).map(t => `<button class="og-btn" data-og="${t[0]}"><span class="og-n">${t[0]}</span><span class="og-t"><b>${esc(t[1])}</b><small>${t[5]} page${t[5] > 1 ? 's' : ''}${t[4] ? ' · Revision ' + esc(t[4]) : ''}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></button>`).join('')}</div>`).join('') + '<p class="rd-note">Text from the CUNY Public Safety Department Operations Guide (Rev. 09/18/2020). Forms are shown as text; always confirm against the current official guide.</p>';
+
+  async function ogOpen(no, bi, q) {
+    const T = OGT.find(t => t[0] === no); if (!T) return;
+    ogCur = no;
+    $('#ogArt').textContent = `Operations Instruction ${no}.0 · ${T[2]}`;
+    $('#ogTitle').textContent = T[1]; $('#ogMeta').textContent = '';
+    $('#ogParts').innerHTML = ''; $('#ogText').innerHTML = '<p class="rd-note">Loading…</p>';
+    const k = OGT.indexOf(T); $('#ogPrev').disabled = k === 0; $('#ogNext').disabled = k === OGT.length - 1;
+    if (ogSh.hidden) openSheet(ogSh);
+    await loadOG();
+    if (ogCur !== no) return;
+    if (!OG) { $('#ogText').innerHTML = '<p class="rd-note">Could not load the guide. Check your connection and try again.</p>'; return; }
+    const I = OG.inst.find(x => x.no === no); const re = q ? ogRe(q) : null; const parts = [];
+    $('#ogMeta').textContent = [I.issued && 'Issued ' + I.issued, I.eff && 'Effective ' + I.eff, I.rev && 'Revision ' + I.rev, `Guide pp. ${I.pages[0]}–${I.pages[1]}`].filter(Boolean).join(' · ');
+    $('#ogText').innerHTML = I.b.map((b, i) => {
+      const [t, pg, x, l, m] = b;
+      if (t === 'h') { parts.push([i, ogTitleCase(x)]); return `<h4 class="og-h" id="ogb-${i}">${m ? `<span>${esc(m)}</span>` : ''}${ogHi(x, re)}</h4>`; }
+      if (t === 's') return `<p class="og-s" id="ogb-${i}">${ogHi(x, re)}</p>`;
+      if (t === 'form') return `<div class="og-form" id="ogb-${i}"><span class="og-tag">Form · guide page ${pg}</span>${ogHi(x, re)}</div>`;
+      return `<p class="og-p og-l${Math.min(l || 0, 4)}" id="ogb-${i}">${m ? `<b class="og-m">${esc(m)}</b> ` : ''}${ogHi(x, re)}</p>`;
+    }).join('');
+    $('#ogParts').innerHTML = parts.length > 1 ? parts.map(([i, n]) => `<button type="button" data-ogpart="${i}">${esc(n.length > 34 ? n.slice(0, 32) + '…' : n)}</button>`).join('') : '';
+    $('#ogParts').hidden = parts.length < 2; $('#ogParts').scrollLeft = 0;
+    const box = $('#ogText');
+    if (bi != null) ogScroll(bi, true); else box.scrollTop = 0;
+  }
+  function ogScroll(bi, flash) {
+    const box = $('#ogText'), el = document.getElementById('ogb-' + bi); if (!el) return;
+    box.scrollTop = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 8;
+    if (flash) { el.classList.remove('og-flash'); void el.offsetWidth; el.classList.add('og-flash'); }
+  }
+  $('#ogParts').addEventListener('click', e => { const b = e.target.closest('[data-ogpart]'); if (b) ogScroll(+b.dataset.ogpart, false); });
+  $('#ogPrev').addEventListener('click', () => { const k = OGT.findIndex(t => t[0] === ogCur); if (k > 0) ogOpen(OGT[k - 1][0]); });
+  $('#ogNext').addEventListener('click', () => { const k = OGT.findIndex(t => t[0] === ogCur); if (k < OGT.length - 1) ogOpen(OGT[k + 1][0]); });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-og]'); if (!b) return;
+    let q = '';
+    if (b.closest('#searchPanel')) { q = $('#q').value; $('#q').value = ''; closeGlobal(); }
+    else if (b.closest('#ogRes')) q = $('#ogQ').value;
+    ogOpen(+b.dataset.og, b.dataset.ob != null ? +b.dataset.ob : null, q);
+  });
+
+  function ogFind(q) {  // -> [[inst, titleHit, [blockIdx…]]…], total
+    const w = ogWords(q); const out = []; let total = 0; if (!w.length || !OG) return [out, 0];
+    const num = /^(?:oi|o\.i\.?|#|instruction)?\s*(\d{1,2})(?:\.0)?$/i.exec(q.trim());
+    OG.inst.forEach(I => {
+      const th = (num && +num[1] === I.no) || w.every(x => I.title.toLowerCase().includes(x));
+      const hits = []; I.b.forEach((b, i) => { const lx = b[2].toLowerCase(); if (w.every(x => lx.includes(x))) hits.push(i); });
+      if (th || hits.length) { out.push([I, th, hits]); total += hits.length; }
+    });
+    out.sort((a, b) => (b[1] - a[1]) || (b[2].length - a[2].length));
+    return [out, total];
+  }
+  let ogT;
+  function ogSearch() {
+    const q = $('#ogQ').value, res = $('#ogRes'), w = ogWords(q);
+    if (!w.length) { res.hidden = true; res.innerHTML = ''; $('#ogToc').hidden = false; return; }
+    res.hidden = false; $('#ogToc').hidden = true;
+    if (!OG) { res.innerHTML = '<p class="rd-note">Loading the guide…</p>'; loadOG().then(() => OG && ogSearch()); return; }
+    const [g, total] = ogFind(q); const re = ogRe(q);
+    if (!g.length) { res.innerHTML = `<p class="rd-note">No matches for “${esc(q.trim())}” in the Operations Guide.</p>`; return; }
+    res.innerHTML = `<p class="og-count">${total} match${total === 1 ? '' : 'es'} in ${g.length} instruction${g.length === 1 ? '' : 's'}</p>` + g.slice(0, 30).map(([I, th, hits]) => `<div class="card og-hit">
+      <button class="og-hit-h" data-og="${I.no}"${hits.length && !th ? ` data-ob="${hits[0]}"` : ''}><span class="og-n">${I.no}</span><b>${ogHi(I.title, re)}</b><small>${hits.length ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') : 'Title match'}</small></button>
+      ${hits.slice(0, 3).map(i => `<button class="og-snip" data-og="${I.no}" data-ob="${i}"><small>Page ${I.b[i][1]}</small>${ogHi(ogSnip(I.b[i][2], w), re)}</button>`).join('')}
+      ${hits.length > 3 ? `<button class="og-more" data-og="${I.no}" data-ob="${hits[3]}">${hits.length - 3} more in this instruction ›</button>` : ''}
+    </div>`).join('');
+  }
+  $('#ogQ').addEventListener('focus', loadOG);
+  $('#ogQ').addEventListener('input', () => { clearTimeout(ogT); ogT = setTimeout(ogSearch, 160); });
+  $('#ogQ').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+
   /* ---------- Club rooms ---------- */
   const CR = C.clubRooms; const roomId = c => 'room-' + c.replace(/\W+/g, '');
   function renderRooms(q = '') {
@@ -511,6 +599,7 @@
   let PL = null, plLoading = null;
   const loadPL = () => plLoading || (plLoading = fetch('./data/penal.json').then(r => r.json()).then(d => {
     PL = d; PL.secs.forEach(s => { s.lt = s[3].toLowerCase(); s.lx = s[5].toLowerCase(); s.n = s[0].toLowerCase(); });
+
     $('#plMeta').textContent = `${PL.secs.length} sections indexed from ${Object.keys(PL.arts).length} articles. Type to search.`;
     if ($('#pl').value) runPL(); if ($('#q').value) runGlobal();
     return d;
@@ -667,8 +756,16 @@
     const fnm = C.fieldNotes.filter(t => m(t.name, (t.sub || '') + ' field notes ' + (t.larceny ? 'petit grand 155.25 155.30' : (t.code || []).join(' ')) + ' ' + (t.kw || '')));
     if (fnm.length && ql.length > 2) groups.push(['Field notes', fnm.map(t => `<button class="sp-item" data-fnjump="${t.id}"><span class="v">${esc(t.name)}<small>Open field notes form</small></span></button>`)]);
     const hrm = ql.length > 2 ? C.henderson.rules.map((r, i) => [i + 1, ...r]).filter(r => m(r[1], r[2] + ' henderson rule ' + r[0])) : [];
+    if (ql.length > 2) {
+      const [og] = OG ? ogFind(q) : [[]]; if (!OG) loadOG();
+      const ogw = ogWords(q);
+      const tH = OG ? og.filter(x => x[1]).map(x => x[0].no) : OGT.filter(t => ogw.every(x => t[1].toLowerCase().includes(x))).map(t => t[0]);
+      const items = tH.slice(0, 4).map(n => { const t = OGT.find(x => x[0] === n); return `<button class="sp-item" data-og="${n}"><span class="k">OI ${n}</span><span class="v">${esc(t[1])}<small>Operations Guide · ${esc(t[2])}</small></span></button>`; });
+      og.filter(x => x[2].length).slice(0, 6).forEach(([I, , h]) => items.push(`<button class="sp-item" data-og="${I.no}" data-ob="${h[0]}"><span class="k">OI ${I.no}</span><span class="v">${esc(I.title)}<small>${esc(ogSnip(I.b[h[0]][2], ogw).slice(0, 120))}</small></span></button>`));
+      if (items.length) groups.push(['Operations Guide', items.slice(0, 8)]);
+    }
     if (hrm.length) groups.push(['Henderson Rules', hrm.slice(0, 6).map(r => `<button class="sp-item" data-jump="hr-${r[0]}"><span class="k">${r[0]}</span><span class="v">${esc(r[1])}<small>Henderson Rule ${r[0]}</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);
@@ -677,7 +774,7 @@
     panel.innerHTML = `<div class="sp-inner">${groups.length ? groups.map(([h, items]) => `<div class="sp-group"><h3>${h}</h3>${items.join('')}</div>`).join('') : `<p class="sp-empty">${PL ? 'Nothing found for “' + esc(q) + '”.' : 'Loading…'}</p>`}</div>`;
   }
   let gT; $('#q').addEventListener('input', () => { clearTimeout(gT); gT = setTimeout(runGlobal, 100); });
-  $('#q').addEventListener('focus', () => { loadPL(); if ($('#q').value) runGlobal(); });
+  $('#q').addEventListener('focus', () => { loadPL(); loadOG(); if ($('#q').value) runGlobal(); });
   $('#q').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
   panel.addEventListener('click', e => { if (e.target.closest('[data-jump]')) { $('#q').value = ''; } });
   window.addEventListener('resize', () => { if (!panel.hidden) placePanel(); });
