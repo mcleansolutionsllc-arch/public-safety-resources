@@ -1047,6 +1047,332 @@
   $('#raQ').addEventListener('input', e => renderRadios(e.target.value));
   $('#raList').addEventListener('click', e => { const b = e.target.closest('[data-ra]'); if (b) copy(b.dataset.ra, 'Radio info copied'); });
 
+  /* ---------- Events & To-Do board (saved on this device only) ---------- */
+  const BDU = './__board.json', BD_KEEP = 30 * 864e5;
+  let BD = { ev: [], td: [], u: 0 }, bdTab = 'ev', bdEdit = null, bdSug = [], bdSrc = null;
+  const bdUid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const bdISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const bdDate = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(+m[1], m[2] - 1, +m[3]) : null; };
+  const bdHm = hm => hm ? hm.replace(':', '') : '';
+  const bdTake = o => { if (!o || !Array.isArray(o.ev) || !Array.isArray(o.td)) return false; if ((o.u || 0) < (BD.u || 0)) return false; BD = { ev: o.ev, td: o.td, u: o.u || 0 }; return true; };
+  const bdPrune = () => {
+    const today = bdDate(todayISO()).getTime(), now = Date.now();
+    const n = BD.ev.length + BD.td.length;
+    BD.ev = BD.ev.filter(e => { const d = bdDate(e.end && e.endDate ? e.endDate : e.date); return !d || today - d.getTime() < BD_KEEP; });
+    BD.td = BD.td.filter(t => !t.done || now - (t.doneAt || now) < BD_KEEP);
+    return n !== BD.ev.length + BD.td.length;
+  };
+  const bdSave = () => {
+    BD.u = Date.now();
+    wnSet('bd', BD);
+    try { if (window.caches) caches.open(NC).then(c => c.put(BDU, new Response(JSON.stringify(BD), { headers: { 'Content-Type': 'application/json' } }))).catch(() => {}); } catch (e) {}
+  };
+  const bdWhen = e => {
+    const d = bdDate(e.date); if (!d) return 'No date';
+    const t = todayISO(), tm = bdISO(new Date(Date.now() + 864e5));
+    const day = e.date === t ? 'Today' : e.date === tm ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+    const tt = e.allDay || !e.start ? '' : ` · ${bdHm(e.start)}${e.end ? '–' + bdHm(e.end) : ''} hrs`;
+    return day + tt;
+  };
+  const bdBadge = iso => { const d = bdDate(iso); return d ? `<span class="bd-cal"><small>${d.toLocaleDateString('en-US', { month: 'short' })}</small><b>${d.getDate()}</b><small>${d.toLocaleDateString('en-US', { weekday: 'short' })}</small></span>` : '<span class="bd-cal none"><b>—</b></span>'; };
+  const bdSrcTag = s => s ? `<span class="bd-src" title="${esc(s.from || '')}">From email${s.subj ? ': ' + esc(s.subj.length > 60 ? s.subj.slice(0, 58) + '…' : s.subj) : ''}</span>` : '';
+  const bdEvSort = (a, b) => (a.date || '9999').localeCompare(b.date || '9999') || (a.start || '').localeCompare(b.start || '');
+
+  function bdRender() {
+    const t = todayISO();
+    const up = BD.ev.filter(e => !e.date || e.date >= t).sort(bdEvSort), past = BD.ev.filter(e => e.date && e.date < t).sort(bdEvSort).reverse();
+    const open = BD.td.filter(x => !x.done), done = BD.td.filter(x => x.done);
+    const over = open.filter(x => x.due && x.due < t).length;
+    $('#bdTabs').innerHTML = `<button class="tab${bdTab === 'ev' ? ' on' : ''}" role="tab" aria-selected="${bdTab === 'ev'}" data-bdt="ev"><b>Events</b><small>${up.length} upcoming</small></button>` +
+      `<button class="tab${bdTab === 'td' ? ' on' : ''}" role="tab" aria-selected="${bdTab === 'td'}" data-bdt="td"><b>To-Do</b><small>${open.length} open${over ? ` · ${over} overdue` : ''}</small></button>`;
+    if (bdTab === 'ev') {
+      const card = e => `<article class="bd-card${e.date === t ? ' today' : ''}" id="bd-${e.id}">${bdBadge(e.date)}<div class="bd-main"><div class="bd-when">${e.date === t ? '<span class="live-tag">Today</span>' : ''}${esc(bdWhen(e))}</div><h3>${esc(e.title || 'Untitled event')}</h3>${e.loc ? `<p class="bd-loc">${esc(e.loc)}</p>` : ''}${e.notes ? `<p class="bd-notes">${esc(e.notes)}</p>` : ''}${bdSrcTag(e.src)}
+        <div class="bd-acts"><button type="button" class="mini" data-bded="${e.id}">Edit</button><button type="button" class="mini" data-bdics="${e.id}">Add to calendar</button></div></div></article>`;
+      $('#bdPanel').innerHTML = (up.length ? `<div class="bd-list">${up.map(card).join('')}</div>` : `<div class="bd-empty"><b>No upcoming events</b><p>Tap “+ Event” or import one from an email.</p></div>`) +
+        (past.length ? `<details class="bd-past"><summary>Past events (${past.length})</summary><div class="bd-list">${past.map(card).join('')}</div><button type="button" class="mini" data-bdclr="past">Clear past events</button></details>` : '') +
+        (up.length ? `<div class="bd-foot"><button type="button" class="mini" data-bdshare="ev">Share list</button><span>Past events clear after 30 days.</span></div>` : '');
+    } else {
+      const pri = x => (x.pri === 'high' ? 0 : 1);
+      const ord = open.sort((a, b) => pri(a) - pri(b) || (a.due || '9999').localeCompare(b.due || '9999') || (a.c || 0) - (b.c || 0));
+      const row = x => { const od = !x.done && x.due && x.due < t, dt = x.due === t; return `<div class="bd-td${x.done ? ' done' : ''}${x.pri === 'high' ? ' hi' : ''}" id="bd-${x.id}">
+        <button type="button" class="bd-chk" data-bddone="${x.id}" aria-pressed="${!!x.done}" aria-label="${x.done ? 'Mark not done' : 'Mark done'}"><span aria-hidden="true"></span></button>
+        <button type="button" class="bd-tdm" data-bded="${x.id}"><b>${esc(x.text || 'Untitled task')}</b><span class="bd-meta">${x.pri === 'high' ? '<span class="bd-hi">High</span>' : ''}${x.due ? `<span class="${od ? 'bd-od' : dt ? 'bd-dt' : ''}">${od ? 'Overdue · ' : dt ? 'Due today · ' : 'Due '}${esc(bdDate(x.due).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))}</span>` : ''}${x.notes ? `<span class="bd-nt">${esc(x.notes.length > 90 ? x.notes.slice(0, 88) + '…' : x.notes)}</span>` : ''}</span>${bdSrcTag(x.src)}</button></div>`; };
+      $('#bdPanel').innerHTML = (ord.length ? `<div class="bd-tds">${ord.map(row).join('')}</div>` : `<div class="bd-empty"><b>Nothing to do</b><p>Tap “+ To-do” or import tasks from an email.</p></div>`) +
+        (done.length ? `<details class="bd-past"><summary>Done (${done.length})</summary><div class="bd-tds">${done.sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).map(row).join('')}</div><button type="button" class="mini" data-bdclr="done">Clear done</button></details>` : '') +
+        (ord.length ? `<div class="bd-foot"><button type="button" class="mini" data-bdshare="td">Share list</button><span>Done tasks clear after 30 days.</span></div>` : '');
+    }
+  }
+
+  /* editor */
+  function bdOpenEd(kind, item) {
+    bdEdit = { kind, id: item && item.id };
+    const x = item || {};
+    $('#bdEdKind').textContent = kind === 'ev' ? 'Event' : 'To-do';
+    $('#bdEdTitle').textContent = item ? (kind === 'ev' ? 'Edit event' : 'Edit to-do') : (kind === 'ev' ? 'New event' : 'New to-do');
+    $('#bdDel').hidden = !item;
+    $('#bdForm').innerHTML = kind === 'ev'
+      ? `<label class="bd-f"><span>Event</span><input name="title" value="${esc(x.title || '')}" placeholder="e.g. Fire drill, C Building" required></label>
+         <div class="bd-row"><label class="bd-f"><span>Date</span><input type="date" name="date" value="${esc(x.date || todayISO())}"></label></div>
+         <div class="bd-row"><label class="bd-f"><span>Start</span><input type="time" name="start" value="${esc(x.start || '')}"></label><label class="bd-f"><span>End</span><input type="time" name="end" value="${esc(x.end || '')}"></label></div>
+         <label class="bd-f"><span>Location</span><input name="loc" value="${esc(x.loc || '')}" placeholder="Building, room or post"></label>
+         <label class="bd-f"><span>Notes</span><textarea name="notes" rows="4" placeholder="Details, contacts, posts to cover">${esc(x.notes || '')}</textarea></label>`
+      : `<label class="bd-f"><span>Task</span><input name="text" value="${esc(x.text || '')}" placeholder="e.g. Submit incident report" required></label>
+         <div class="bd-row"><label class="bd-f"><span>Due date</span><input type="date" name="due" value="${esc(x.due || '')}"></label>
+         <fieldset class="bd-f"><legend>Priority</legend><div class="bd-seg"><button type="button" class="${x.pri !== 'high' ? 'on' : ''}" data-pri="normal">Normal</button><button type="button" class="${x.pri === 'high' ? 'on' : ''}" data-pri="high">High</button></div></fieldset></div>
+         <label class="bd-f"><span>Notes</span><textarea name="notes" rows="4">${esc(x.notes || '')}</textarea></label>`;
+    openSheet($('#bdEd'));
+    setTimeout(() => { const f = $('#bdForm input'); if (f && !item) f.focus(); }, 60);
+  }
+  $('#bdForm').addEventListener('click', e => { const b = e.target.closest('[data-pri]'); if (b) { $$('#bdForm [data-pri]').forEach(x => x.classList.toggle('on', x === b)); } });
+  $('#bdForm').addEventListener('submit', e => { e.preventDefault(); $('#bdSave').click(); });
+  $('#bdSave').addEventListener('click', () => {
+    const f = $('#bdForm'), g = n => (f.elements[n] ? f.elements[n].value.trim() : '');
+    const list = bdEdit.kind === 'ev' ? BD.ev : BD.td;
+    let it = bdEdit.id ? list.find(x => x.id === bdEdit.id) : null;
+    if (bdEdit.kind === 'ev') {
+      if (!g('title')) { toast('Add a name for the event'); f.elements.title.focus(); return; }
+      const v = { title: g('title'), date: g('date'), start: g('start'), end: g('end'), loc: g('loc'), notes: g('notes') };
+      if (it) Object.assign(it, v); else list.push(it = { id: bdUid(), c: Date.now(), ...v });
+    } else {
+      if (!g('text')) { toast('Add the task'); f.elements.text.focus(); return; }
+      const on = $('#bdForm [data-pri].on'), v = { text: g('text'), due: g('due'), notes: g('notes'), pri: on && on.dataset.pri === 'high' ? 'high' : 'normal' };
+      if (it) Object.assign(it, v); else list.push(it = { id: bdUid(), c: Date.now(), done: false, ...v });
+    }
+    bdSave(); bdTab = bdEdit.kind; bdRender(); closeSheet($('#bdEd')); toast('Saved on this phone');
+  });
+  $('#bdDel').addEventListener('click', () => {
+    if (!bdEdit || !bdEdit.id || !confirm('Delete this item?')) return;
+    if (bdEdit.kind === 'ev') BD.ev = BD.ev.filter(x => x.id !== bdEdit.id); else BD.td = BD.td.filter(x => x.id !== bdEdit.id);
+    bdSave(); bdRender(); closeSheet($('#bdEd')); toast('Deleted');
+  });
+
+  /* calendar file + share */
+  const icsEsc = s => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+  function bdIcs(e) {
+    const d = (e.date || todayISO()).replace(/-/g, ''), nx = bdISO(new Date(bdDate(e.date || todayISO()).getTime() + 864e5)).replace(/-/g, '');
+    const st = e.start ? `DTSTART:${d}T${e.start.replace(':', '')}00` : `DTSTART;VALUE=DATE:${d}`;
+    const en = e.start ? `DTEND:${d}T${(e.end || e.start).replace(':', '')}00` : `DTEND;VALUE=DATE:${nx}`;
+    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Public Safety Resources//Board//EN', 'BEGIN:VEVENT', `UID:${e.id}@ps-board`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`, st, en, `SUMMARY:${icsEsc(e.title)}`, e.loc ? `LOCATION:${icsEsc(e.loc)}` : '', e.notes ? `DESCRIPTION:${icsEsc(e.notes)}` : '', 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+    const blob = new Blob([ics], { type: 'text/calendar' }), name = (e.title || 'event').replace(/[^\w\- ]+/g, '').trim().slice(0, 40) || 'event';
+    const file = typeof File === 'function' ? new File([blob], name + '.ics', { type: 'text/calendar' }) : null;
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: e.title }).catch(() => {}); return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '.ics'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function bdShare(kind) {
+    const t = todayISO();
+    const txt = kind === 'ev'
+      ? 'Upcoming events\n' + BD.ev.filter(e => !e.date || e.date >= t).sort(bdEvSort).map(e => `• ${bdWhen(e)}: ${e.title}${e.loc ? ' (' + e.loc + ')' : ''}`).join('\n')
+      : 'To-do\n' + BD.td.filter(x => !x.done).map(x => `• ${x.pri === 'high' ? '[High] ' : ''}${x.text}${x.due ? ' (due ' + x.due + ')' : ''}`).join('\n');
+    if (navigator.share) navigator.share({ title: kind === 'ev' ? 'Upcoming events' : 'To-do', text: txt }).catch(() => {}); else copy(txt, 'List copied');
+  }
+
+  $('#bdTabs').addEventListener('click', e => { const b = e.target.closest('[data-bdt]'); if (b) { bdTab = b.dataset.bdt; bdRender(); } });
+  $$('[data-bdnew]').forEach(b => b.addEventListener('click', () => bdOpenEd(b.dataset.bdnew)));
+  $('#bdPanel').addEventListener('click', e => {
+    let b;
+    if ((b = e.target.closest('[data-bddone]'))) { const x = BD.td.find(z => z.id === b.dataset.bddone); if (x) { x.done = !x.done; x.doneAt = x.done ? Date.now() : 0; bdSave(); bdRender(); if (x.done) toast('Marked done'); } return; }
+    if ((b = e.target.closest('[data-bded]'))) { const id = b.dataset.bded, ev = BD.ev.find(z => z.id === id), td = BD.td.find(z => z.id === id); if (ev) bdOpenEd('ev', ev); else if (td) bdOpenEd('td', td); return; }
+    if ((b = e.target.closest('[data-bdics]'))) { const ev = BD.ev.find(z => z.id === b.dataset.bdics); if (ev) bdIcs(ev); return; }
+    if ((b = e.target.closest('[data-bdshare]'))) { bdShare(b.dataset.bdshare); return; }
+    if ((b = e.target.closest('[data-bdclr]'))) {
+      const t = todayISO();
+      if (b.dataset.bdclr === 'past') { if (!confirm('Clear all past events?')) return; BD.ev = BD.ev.filter(x => !x.date || x.date >= t); }
+      else { if (!confirm('Clear all done tasks?')) return; BD.td = BD.td.filter(x => !x.done); }
+      bdSave(); bdRender();
+    }
+  });
+
+  /* ---- email reading ---- */
+  const MON = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  const DOW = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const bdYear = (mo, d, y, ref) => { if (y) return y < 100 ? 2000 + y : y; let yy = ref.getFullYear(); const dt = new Date(yy, mo, d); if (ref - dt > 60 * 864e5) yy++; return yy; };
+  function bdFindDates(s, ref) {
+    const out = [], add = (i, len, dt) => { if (dt && !isNaN(dt) && !out.some(o => Math.abs(o.i - i) < 3)) out.push({ i, len, iso: bdISO(dt) }); };
+    let m;
+    const re1 = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b(?:,?\s+(\d{4}))?/gi;
+    while ((m = re1.exec(s))) { const mo = MON[m[1].slice(0, 3).toLowerCase()], d = +m[2]; if (d >= 1 && d <= 31) add(m.index, m[0].length, new Date(bdYear(mo, d, m[3] && +m[3], ref), mo, d)); }
+    const re2 = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/g;
+    while ((m = re2.exec(s))) { const mo = +m[1] - 1, d = +m[2]; if (mo >= 0 && mo < 12 && d >= 1 && d <= 31 && !/^\s*(?:hrs|x)/i.test(s.slice(m.index + m[0].length, m.index + m[0].length + 4))) add(m.index, m[0].length, new Date(bdYear(mo, d, m[3] && +m[3], ref), mo, d)); }
+    const re3 = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
+    while ((m = re3.exec(s))) add(m.index, m[0].length, new Date(+m[1], m[2] - 1, +m[3]));
+    const re4 = /\b(today|tonight|tomorrow)\b/gi;
+    while ((m = re4.exec(s))) add(m.index, m[0].length, new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + (m[1].toLowerCase() === 'tomorrow' ? 1 : 0)));
+    const re5 = /\b(?:(next|this)\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi;
+    while ((m = re5.exec(s))) { const near = out.some(o => o.i > m.index && o.i - m.index < m[0].length + 4); if (near) continue; const w = DOW.indexOf(m[2].toLowerCase()); let add_ = (w - ref.getDay() + 7) % 7; if (m[1] && m[1].toLowerCase() === 'next' && add_ === 0) add_ = 7; add(m.index, m[0].length, new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + add_)); }
+    return out.sort((a, b) => a.i - b.i);
+  }
+  function bdFindTimes(s) {
+    const out = [], p2 = n => String(n).padStart(2, '0'), h24 = (h, ap) => { h = +h; ap = (ap || '').toLowerCase().replace(/\./g, ''); if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0; return h; };
+    let m;
+    const rr = /\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?\s*(?:-|–|—|to|until)\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/gi;
+    while ((m = rr.exec(s))) { const ap2 = m[6]; let a = h24(m[1], m[3] || ap2), b = h24(m[4], ap2); if (!m[3] && a > b) a -= 12; if (a >= 0 && a < 24 && b < 24) out.push({ i: m.index, len: m[0].length, hm: `${p2(a)}:${m[2] || '00'}`, end: `${p2(b)}:${m[5] || '00'}` }); }
+    const r1 = /\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/gi;
+    while ((m = r1.exec(s))) { if (out.some(o => m.index >= o.i && m.index < o.i + o.len)) continue; const h = h24(m[1], m[3]); if (h < 24) out.push({ i: m.index, len: m[0].length, hm: `${p2(h)}:${m[2] || '00'}` }); }
+    const r2 = /\b([01]?\d|2[0-3]):?([0-5]\d)\s*(?:hrs|hours|hr)\b/gi;
+    while ((m = r2.exec(s))) { if (out.some(o => m.index >= o.i && m.index < o.i + o.len)) continue; out.push({ i: m.index, len: m[0].length, hm: `${p2(+m[1])}:${m[2]}` }); }
+    const r3 = /\b(noon|midnight)\b/gi;
+    while ((m = r3.exec(s))) out.push({ i: m.index, len: m[0].length, hm: m[1].toLowerCase() === 'noon' ? '12:00' : '00:00' });
+    return out.sort((a, b) => a.i - b.i);
+  }
+  const bdLoc = s => { let m = /\b(?:location|where|place|room|venue)\s*[:\-]\s*([^\n]{2,80})/i.exec(s); if (m) return m[1].trim().replace(/[.;]+$/, ''); m = /\b(?:in|at)\s+((?:room\s+)?[A-G]-?\d{3}[A-Z]?\b(?:[^\n,.;]{0,30})?|(?:the\s+)?[A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*){0,4}\s+(?:Building|Theater|Theatre|Gym(?:nasium)?|Lobby|Library|Auditorium|Atrium|Hall|Room|Gallery|Cafeteria|Complex))\b/.exec(s); return m ? m[1].trim() : ''; };
+  const TODO_RE = /\b(please|ensure|make sure|must|required|requirement|need(?:s|ed)? to|remember|reminder|don'?t forget|deadline|due|submit|complete|report to|respond|reply|sign(?:-| )?up|rsvp|attend|bring|wear|turn in|hand in|review|update|confirm|notify|post(?:ed)? at|cover|assigned)\b/i;
+  const HI_RE = /\b(urgent|asap|immediately|important|mandatory|high priority|no exceptions|time sensitive)\b/i;
+
+  function bdDecodeWords(s) { return String(s || '').replace(/=\?([^?]+)\?([bq])\?([^?]*)\?=/gi, (_, cs, enc, txt) => { try { const bytes = enc.toLowerCase() === 'b' ? Uint8Array.from(atob(txt), c => c.charCodeAt(0)) : Uint8Array.from(txt.replace(/_/g, ' ').replace(/=([0-9a-f]{2})/gi, (x, h) => String.fromCharCode(parseInt(h, 16))), c => c.charCodeAt(0)); return new TextDecoder(cs).decode(bytes); } catch (e) { return txt; } }).replace(/\?=\s+=\?/g, ''); }
+  function bdQP(s) { return s.replace(/=\r?\n/g, '').replace(/(=[0-9A-F]{2})+/gi, x => { try { return new TextDecoder().decode(Uint8Array.from(x.match(/=([0-9A-F]{2})/gi).map(h => parseInt(h.slice(1), 16)))); } catch (e) { return x; } }); }
+  function bdB64(s) { try { return new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s+/g, '')), c => c.charCodeAt(0))); } catch (e) { return ''; } }
+  function bdHtml(h) { const d = document.createElement('div'); d.innerHTML = h.replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|tr|h\d)>/gi, '\n').replace(/<li[^>]*>/gi, '• '); return (d.textContent || '').replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n'); }
+  function bdHeaders(raw) { const h = {}; raw.replace(/\r?\n[ \t]+/g, ' ').split(/\r?\n/).forEach(l => { const m = /^([\w-]+):\s*(.*)$/.exec(l); if (m) h[m[1].toLowerCase()] = m[2]; }); return h; }
+  function bdPart(raw, acc) {
+    const cut = raw.search(/\r?\n\r?\n/), h = bdHeaders(cut < 0 ? raw : raw.slice(0, cut)); let body = cut < 0 ? '' : raw.slice(cut).replace(/^\r?\n\r?\n/, '');
+    const ct = (h['content-type'] || 'text/plain').toLowerCase(), te = (h['content-transfer-encoding'] || '').toLowerCase();
+    const bm = /boundary="?([^";]+)"?/i.exec(h['content-type'] || '');
+    if (ct.startsWith('multipart/') && bm) { body.split('--' + bm[1]).slice(1).forEach(p => { if (!/^--/.test(p)) bdPart(p.replace(/^\r?\n/, ''), acc); }); return acc; }
+    if (/attachment/i.test(h['content-disposition'] || '') && !ct.startsWith('text/calendar')) return acc;
+    if (te === 'base64') body = bdB64(body); else if (te === 'quoted-printable') body = bdQP(body);
+    if (ct.startsWith('text/calendar')) acc.ics.push(body); else if (ct.startsWith('text/html')) acc.html.push(body); else if (ct.startsWith('text/')) acc.text.push(body);
+    return acc;
+  }
+  function bdEml(raw) {
+    const cut = raw.search(/\r?\n\r?\n/), h = bdHeaders(raw.slice(0, cut < 0 ? raw.length : cut));
+    const acc = bdPart(raw, { text: [], html: [], ics: [] });
+    return { subj: bdDecodeWords(h.subject || ''), from: bdDecodeWords(h.from || ''), date: h.date || '', body: acc.text.length ? acc.text.join('\n') : acc.html.map(bdHtml).join('\n'), ics: acc.ics };
+  }
+  function bdIcsParse(txt) {
+    const lines = txt.replace(/\r?\n[ \t]/g, '').split(/\r?\n/), out = []; let cur = null;
+    const val = v => v.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
+    const dt = (v, p) => { const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/.exec(v || ''); if (!m) return null; if (!m[4]) return { date: `${m[1]}-${m[2]}-${m[3]}`, hm: '' }; const d = m[7] ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5])) : new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]); return { date: bdISO(d), hm: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }; };
+    lines.forEach(l => {
+      if (/^BEGIN:(VEVENT|VTODO)/i.test(l)) { cur = { kind: /VTODO/i.test(l) ? 'td' : 'ev' }; return; }
+      if (/^END:(VEVENT|VTODO)/i.test(l)) { if (cur) out.push(cur); cur = null; return; }
+      if (!cur) return; const i = l.indexOf(':'); if (i < 0) return; const k = l.slice(0, i).split(';')[0].toUpperCase(), v = l.slice(i + 1);
+      if (k === 'SUMMARY') cur.title = val(v); else if (k === 'LOCATION') cur.loc = val(v); else if (k === 'DESCRIPTION') cur.notes = val(v).slice(0, 600);
+      else if (k === 'DTSTART' || k === 'DUE') { const d = dt(v); if (d) { cur.date = d.date; cur.start = d.hm; } } else if (k === 'DTEND') { const d = dt(v); if (d) cur.end = d.hm; }
+    });
+    return out.map(x => x.kind === 'ev' ? { kind: 'ev', on: true, title: x.title || 'Calendar event', date: x.date || '', start: x.start || '', end: x.end && x.end !== x.start ? x.end : '', loc: x.loc || '', notes: x.notes || '' } : { kind: 'td', on: true, title: x.title || 'Task', date: x.date || '', notes: x.notes || '', pri: 'normal' });
+  }
+  function bdPasted(txt) {
+    /* Outlook / Gmail copied headers at the top: From / Sent / Date / To / Cc / Subject */
+    const lines = txt.replace(/\r/g, '').split('\n'); const h = {}; let i = 0, seen = 0;
+    for (; i < Math.min(lines.length, 14); i++) { const l = lines[i].trim(); if (!l) { if (seen) { i++; break; } continue; } const m = /^(from|sent|date|to|cc|bcc|subject|importance)\s*:\s*(.*)$/i.exec(l); if (m) { h[m[1].toLowerCase()] = m[2]; seen++; } else if (seen) break; else break; }
+    const body = seen ? lines.slice(i).join('\n') : txt;
+    return { subj: h.subject || '', from: h.from || '', date: h.sent || h.date || '', body, ics: [] };
+  }
+  function bdClean(body) {
+    const ls = body.replace(/\r/g, '').split('\n'), out = [];
+    for (const l of ls) {
+      if (/^\s*(-{2,}\s*original message\s*-{2,}|_{8,}|on .{6,120} wrote:\s*$|from:\s.+\s(sent|date):)/i.test(l)) break;
+      if (/^\s*>/.test(l)) continue;
+      if (/^\s*(sent from my|get outlook for|confidentiality notice|this e-?mail (and any|is intended))/i.test(l)) break;
+      out.push(l);
+    }
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  function bdSuggest(msg) {
+    const ref = (() => { const d = msg.date ? new Date(msg.date.replace(/\s+at\s+/i, ' ')) : null; return d && !isNaN(d) ? d : new Date(); })();
+    const sugs = [], ics = [];
+    msg.ics.forEach(t => ics.push(...bdIcsParse(t)));
+    const body = bdClean(msg.body || ''), subj = (msg.subj || '').replace(/^\s*((re|fw|fwd)\s*:\s*)+/i, '').trim();
+    const all = (subj ? subj + '\n' : '') + body, hiAll = HI_RE.test(all);
+    const ABBR = /\b(sgt|lt|capt|mr|mrs|ms|dr|st|no|rm|ave|vs|etc|dept|bldg|ext|approx|[ap]\.m|[A-Z])\.$/i;
+    const sent = l => { if (!/[.!?]\s+\S/.test(l)) return [l]; const out = []; let cur = ''; l.replace(/[^.!?]+(?:[.!?]+|$)/g, p => { cur += p; if (!ABBR.test(cur.trim())) { if (cur.trim()) out.push(cur.trim()); cur = ''; } return p; }); if (cur.trim()) out.push(cur.trim()); return out.length ? out : [l]; };
+    const lines = all.split('\n').map(l => l.trim()).filter(Boolean).flatMap((l, i) => i === 0 && subj && l === subj ? [l] : sent(l));
+    const BUL = /^\s*([•\-*–▪●◦]|\d{1,2}[.)]|[a-h][.)])\s+/, SKIP = /^(hi|hello|good (morning|afternoon|evening)|dear|thanks|thank you|regards|best|sincerely|all,?$)\b/i;
+    const groups = new Map(), tds = [];
+    lines.forEach((l, idx) => {
+      if (SKIP.test(l) || /:\s*$/.test(l) || l.length < 6) return;
+      const d = bdFindDates(l, ref), t = bdFindTimes(l), act = TODO_RE.test(l), bul = BUL.test(l), isSubj = idx === 0 && subj && l === subj;
+      if (d.length && (t.length || isSubj || !(act || bul))) {
+        const k = d[0].iso; if (!groups.has(k)) groups.set(k, { iso: k, lines: [], subj: false, t: null, loc: '' });
+        const g = groups.get(k); g.lines.push(l); if (isSubj) g.subj = true; if (!g.t && t.length) g.t = t[0]; if (!g.loc) g.loc = bdLoc(l);
+        return;
+      }
+      if (isSubj || !(act || bul)) return;
+      tds.push({ l, d });
+    });
+    if (ics.length) sugs.push(...ics);
+    else {
+      const gl = [...groups.values()];
+      gl.forEach(g => {
+        const useSubj = subj && (g.subj || gl.length === 1);
+        const ttl = useSubj ? subj : g.lines.find(x => x !== subj).replace(BUL, '').slice(0, 120);
+        sugs.push({ kind: 'ev', on: true, title: ttl, date: g.iso, start: g.t ? g.t.hm : '', end: g.t && g.t.end ? g.t.end : '', loc: (g.loc || bdLoc(all)).replace(/^the\s+/i, ''), notes: (useSubj ? body : g.lines.join('\n')).slice(0, 400) });
+      });
+    }
+    const evDates = new Set(sugs.filter(x => x.kind === 'ev').map(x => x.date)), seenT = new Set();
+    tds.forEach(({ l, d }) => {
+      if (ics.length && d.length && evDates.has(d[0].iso) && !/\b(submit|due|deadline|turn in|hand in|rsvp|sign(?:-| )?up|respond|reply)\b/i.test(l)) return;
+      const txt = l.replace(BUL, '').replace(/\s+/g, ' ').slice(0, 160), k = txt.toLowerCase();
+      if (seenT.has(k)) return; seenT.add(k);
+      sugs.push({ kind: 'td', on: true, title: txt, date: d.length ? d[0].iso : '', notes: subj ? 'From: ' + subj : '', pri: HI_RE.test(l) || hiAll ? 'high' : 'normal' });
+    });
+    const tdl = sugs.filter(x => x.kind === 'td'); if (tdl.length > 12) tdl.slice(12).forEach(x => sugs.splice(sugs.indexOf(x), 1));
+    if (!sugs.length) sugs.push({ kind: 'td', on: true, title: subj || (lines[0] || 'Follow up on email').slice(0, 120), date: '', notes: body.slice(0, 300), pri: hiAll ? 'high' : 'normal' });
+    return sugs;
+  }
+  function bdParse(raw, name) {
+    raw = String(raw || '');
+    if (/\.ics$/i.test(name || '') || /^BEGIN:VCALENDAR/m.test(raw) && !/^(from|subject|received|mime-version):/im.test(raw.slice(0, 2000))) return { subj: name ? name.replace(/\.ics$/i, '') : 'Calendar invite', from: '', date: '', body: '', ics: [raw] };
+    if (/^(received|mime-version|message-id|return-path|delivered-to|x-[\w-]+):/im.test(raw.slice(0, 3000)) && /\r?\n\r?\n/.test(raw)) return bdEml(raw);
+    return bdPasted(raw);
+  }
+
+  function bdSugRender() {
+    const n = bdSug.filter(s => s.on).length;
+    $('#bdImpStep2').innerHTML = `<div class="bd-from">${bdSrc && bdSrc.subj ? `<b>${esc(bdSrc.subj)}</b>` : '<b>Email</b>'}${bdSrc && bdSrc.from ? `<small>${esc(bdSrc.from)}</small>` : ''}</div>
+      <p class="small">Found ${bdSug.filter(s => s.kind === 'ev').length} event${bdSug.filter(s => s.kind === 'ev').length === 1 ? '' : 's'} and ${bdSug.filter(s => s.kind === 'td').length} to-do${bdSug.filter(s => s.kind === 'td').length === 1 ? '' : 's'}. Check what to keep and fix anything the app read wrong.</p>
+      <div class="bd-sugs">${bdSug.map((s, i) => `<div class="bd-sug${s.on ? ' on' : ''}" data-si="${i}">
+        <div class="bd-sug-h"><button type="button" class="bd-chk" data-sion="${i}" aria-pressed="${s.on}" aria-label="Keep this item"><span aria-hidden="true"></span></button>
+        <div class="bd-seg sm"><button type="button" class="${s.kind === 'ev' ? 'on' : ''}" data-sik="${i}" data-v="ev">Event</button><button type="button" class="${s.kind === 'td' ? 'on' : ''}" data-sik="${i}" data-v="td">To-do</button></div>
+        ${s.kind === 'td' ? `<button type="button" class="bd-pri${s.pri === 'high' ? ' on' : ''}" data-sipri="${i}" aria-pressed="${s.pri === 'high'}">High</button>` : ''}</div>
+        <label class="bd-f"><span>${s.kind === 'ev' ? 'Event' : 'Task'}</span><input data-sif="title" value="${esc(s.title)}"></label>
+        <div class="bd-row"><label class="bd-f"><span>${s.kind === 'ev' ? 'Date' : 'Due'}</span><input type="date" data-sif="date" value="${esc(s.date || '')}"></label>${s.kind === 'ev' ? `<label class="bd-f"><span>Start</span><input type="time" data-sif="start" value="${esc(s.start || '')}"></label><label class="bd-f"><span>End</span><input type="time" data-sif="end" value="${esc(s.end || '')}"></label>` : ''}</div>
+        ${s.kind === 'ev' ? `<label class="bd-f"><span>Location</span><input data-sif="loc" value="${esc(s.loc || '')}"></label>` : ''}
+      </div>`).join('')}</div>`;
+    $('#bdRead').textContent = n ? `Add ${n} item${n === 1 ? '' : 's'}` : 'Nothing selected';
+    $('#bdRead').disabled = !n;
+  }
+  function bdImpReset() { bdSug = []; bdSrc = null; $('#bdImpStep1').hidden = false; $('#bdImpStep2').hidden = true; $('#bdBack').hidden = true; $('#bdRead').textContent = 'Read email'; $('#bdRead').disabled = false; }
+  function bdRead(raw, name) {
+    if (!String(raw || '').trim()) { toast('Paste an email first'); $('#bdImpText').focus(); return; }
+    const msg = bdParse(raw, name);
+    bdSrc = { subj: (msg.subj || '').replace(/^\s*((re|fw|fwd)\s*:\s*)+/i, '').trim(), from: msg.from || '' };
+    bdSug = bdSuggest(msg);
+    $('#bdImpStep1').hidden = true; $('#bdImpStep2').hidden = false; $('#bdBack').hidden = false;
+    bdSugRender(); $('#bdImpBody').scrollTop = 0;
+  }
+  function bdOpenImp(text) { bdImpReset(); $('#bdImpText').value = text || ''; openSheet($('#bdImp')); }
+  $('#bdImport').addEventListener('click', () => bdOpenImp(''));
+  $('#bdBack').addEventListener('click', bdImpReset);
+  $('#bdPaste').addEventListener('click', async () => { try { const t = await navigator.clipboard.readText(); if (t) { $('#bdImpText').value = t; toast('Pasted'); } else toast('Clipboard is empty'); } catch (e) { toast('Long-press the box and choose Paste'); $('#bdImpText').focus(); } });
+  $('#bdFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { bdRead(String(r.result || ''), f.name); e.target.value = ''; }; r.readAsText(f); });
+  $('#bdRead').addEventListener('click', () => {
+    if ($('#bdImpStep2').hidden) { bdRead($('#bdImpText').value); return; }
+    const keep = bdSug.filter(s => s.on && s.title.trim()); if (!keep.length) return;
+    const now = Date.now();
+    keep.forEach((s, i) => {
+      if (s.kind === 'ev') BD.ev.push({ id: bdUid(), c: now + i, title: s.title.trim(), date: s.date, start: s.start || '', end: s.end || '', loc: (s.loc || '').trim(), notes: s.notes || '', src: bdSrc });
+      else BD.td.push({ id: bdUid(), c: now + i, text: s.title.trim(), due: s.date, notes: s.notes || '', pri: s.pri || 'normal', done: false, src: bdSrc });
+    });
+    bdSave(); const ev = keep.filter(s => s.kind === 'ev').length; bdTab = ev ? 'ev' : 'td'; bdRender(); closeSheet($('#bdImp'));
+    toast(`Added ${keep.length} item${keep.length === 1 ? '' : 's'}`);
+    $('#board').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+  $('#bdImpStep2').addEventListener('click', e => {
+    let b;
+    if ((b = e.target.closest('[data-sion]'))) { const s = bdSug[+b.dataset.sion]; s.on = !s.on; bdSugRender(); return; }
+    if ((b = e.target.closest('[data-sik]'))) { const s = bdSug[+b.dataset.sik]; if (s.kind !== b.dataset.v) { s.kind = b.dataset.v; s.pri = s.pri || 'normal'; bdSugRender(); } return; }
+    if ((b = e.target.closest('[data-sipri]'))) { const s = bdSug[+b.dataset.sipri]; s.pri = s.pri === 'high' ? 'normal' : 'high'; bdSugRender(); }
+  });
+  $('#bdImpStep2').addEventListener('input', e => { const f = e.target.closest('[data-sif]'); if (!f) return; const card = f.closest('[data-si]'); bdSug[+card.dataset.si][f.dataset.sif] = f.value; });
+
+  /* load: this tab's window.name first, then cache storage */
+  bdTake(wnGet().bd); if (bdPrune()) bdSave(); bdRender();
+  try { if (window.caches) caches.open(NC).then(c => c.match(BDU)).then(r => r ? r.json() : null).then(o => { if (bdTake(o)) { bdPrune(); wnSet('bd', BD); bdRender(); } }).catch(() => {}); } catch (e) {}
+  setInterval(() => { const d = new Date(); if (d.getHours() === 0 && d.getMinutes() === 0) { if (bdPrune()) bdSave(); bdRender(); } }, 60e3);
+  /* shared into the app from an email app (Android "Share" → Public Safety) */
+  (() => { const q = new URLSearchParams(location.search); if (!q.has('text') && !q.has('title') && !q.has('url')) return; const t = [q.get('title') ? 'Subject: ' + q.get('title') : '', q.get('text') || '', q.get('url') || ''].filter(Boolean).join('\n\n'); history.replaceState(null, '', location.pathname + '#board'); setTimeout(() => { $('#board').scrollIntoView({ block: 'start' }); bdOpenImp(t); if (t.trim()) bdRead(t); }, 50); })();
+
   /* ---------- Important numbers ---------- */
   const NM = C.numbers;
   const nmId = (g, n) => 'nm-' + (g + '-' + n).replace(/\W+/g, '').toLowerCase();
@@ -1258,7 +1584,7 @@
       if (items.length) groups.push(['Operations Guide', items.slice(0, 8)]);
     }
     if (hrm.length) groups.push(['Henderson Rules', hrm.slice(0, 6).map(r => `<button class="sp-item" data-jump="hr-${r[0]}"><span class="k">${r[0]}</span><span class="v">${esc(r[1])}<small>Henderson Rule ${r[0]}</small></span></button>`)]);
-    const secs = [['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['radios', 'Radio Assignments', 'radio assignments radio numbers serial supervisors equipment peace officers csa sector'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['posts', 'Post Assignments', 'post assignments post duties sector ida john frank patrol detex doors memo 29 a building b building c building adam boy charlie'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['numbers', 'Important Numbers', 'phone numbers extensions ext directory contacts emergency 911 b&g custodial nurse hr it'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
+    const secs = [['board', 'Events & To-Do', 'board events to-do todo to do tasks list reminders email import calendar'], ['crimes', 'Crime Classifications'], ['lookup', 'Penal Law Lookup'], ['jagger', 'Jagger Hall Classifications'], ['radio', 'Radio Codes'], ['radios', 'Radio Assignments', 'radio assignments radio numbers serial supervisors equipment peace officers csa sector'], ['phonetic', 'Phonetic Alphabet'], ['reports', 'Report Writing'], ['fieldnotes', 'Field Notes', 'field notes narrative generator incident larceny petit grand aided alarm burglary robbery trespass lost property'], ['tours', 'Tour Master Schedules', 'midnight day evening tour 1 2 3 schedule shift'], ['tourlog', 'Evening Tour Log', 'tour log supervisor tour update evening 1500x2300 roll call attendance service calls key exchange email'], ['posts', 'Post Assignments', 'post assignments post duties sector ida john frank patrol detex doors memo 29 a building b building c building adam boy charlie'], ['meals', 'Meal Times', 'meal meals lunch dinner relief frank john ida mobile peter memo 39 break'], ['numbers', 'Important Numbers', 'phone numbers extensions ext directory contacts emergency 911 b&g custodial nurse hr it'], ['buildings', 'Campus Buildings', 'building sector address extension ext phone'], ['clubs', 'C-Building Club Rooms', 'club room 450 grand concourse student activities'], ['uniform', 'Uniform Change Dates', 'winter spring summer fall'], ['summons', 'Summons Complaint/Information', 'crc-3206 ticket'], ['returndates', 'C-Summons Return Date Schedule', 'return date trial date court appearance c-summons csummons bronx criminal court 161st'], ['henderson', 'CUNY Henderson Rules', 'henderson rules public order article 129-a education law penalties sanctions'], ['opsguide', 'Operations Guide', 'operations guide instructions oi policy procedure manual'], ['peel', "Sir Robert Peel's Principles"]].filter(s => m(s[1], s[2] || ''));
     if (secs.length) groups.push(['Sections', secs.map(s => `<button class="sp-item" data-jump="${s[0]}"><span class="v">${esc(s[1])}</span></button>`)]);
     if (PL) {
       const pl = searchPL(q, '', 8);

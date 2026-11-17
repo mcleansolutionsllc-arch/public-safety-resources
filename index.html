@@ -41,6 +41,7 @@
     <input id="q" type="search" inputmode="search" autocomplete="off" placeholder="Search everything: 155.30, 10-84, Jagger Hall 7…" aria-label="Search all resources">
   </label>
   <nav class="chips" aria-label="Categories" id="chips">
+    <a href="#board" class="chip">Events &amp; To-Do</a>
     <a href="#crimes" class="chip">Crimes</a>
     <a href="#lookup" class="chip">Penal Law Lookup</a>
     <a href="#jagger" class="chip">Jagger Hall</a>
@@ -68,6 +69,21 @@
 <div id="searchPanel" class="search-panel" hidden aria-live="polite"></div>
 
 <main id="main">
+
+  <section id="board" class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">My board · saved on this phone</p>
+      <h2>Events &amp; To-Do</h2>
+      <p class="lede">Keep track of events, details and tasks. Add them yourself or import them from an email. Items stay on this phone only and are never posted to the site.</p>
+    </div>
+    <div class="bd-top">
+      <button type="button" class="btn primary" id="bdImport"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Import from email</button>
+      <button type="button" class="btn" data-bdnew="ev">+ Event</button>
+      <button type="button" class="btn" data-bdnew="td">+ To-do</button>
+    </div>
+    <div class="tabs bd-tabs" role="tablist" aria-label="Board list" id="bdTabs"></div>
+    <div id="bdPanel" role="tabpanel"></div>
+  </section>
 
   <section id="crimes" class="sec">
     <div class="sec-head">
@@ -421,6 +437,50 @@
     <div class="sheet-actions">
       <a class="btn primary" id="sheetLink" target="_blank" rel="noopener">Open on ypdcrime.com</a>
       <button class="btn" id="sheetCopy">Copy citation</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="bdEd" hidden role="dialog" aria-modal="true" aria-labelledby="bdEdTitle">
+  <div class="sheet-scrim" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-grab" data-close></div>
+    <div class="sheet-head">
+      <div><p class="eyebrow" id="bdEdKind">Event</p><h3 id="bdEdTitle">New event</h3></div>
+      <button class="icon-btn dark" data-close aria-label="Close"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <form class="sheet-text bd-form" id="bdForm" autocomplete="off"></form>
+    <div class="rp-actions">
+      <button type="button" class="btn primary" id="bdSave">Save</button>
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="button" class="btn bd-del" id="bdDel" hidden>Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="bdImp" hidden role="dialog" aria-modal="true" aria-labelledby="bdImpTitle">
+  <div class="sheet-scrim" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-grab" data-close></div>
+    <div class="sheet-head">
+      <div><p class="eyebrow">Events &amp; To-Do</p><h3 id="bdImpTitle">Import from email</h3></div>
+      <button class="icon-btn dark" data-close aria-label="Close"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="sheet-text" id="bdImpBody">
+      <div id="bdImpStep1">
+        <p class="small">Copy the email (or forward it to yourself and copy it), then paste it below. You can also open a saved email (.eml) or a calendar invite (.ics). The app reads dates, times, places and action items and lets you review them before saving.</p>
+        <label class="bd-f"><span>Email text</span><textarea id="bdImpText" rows="9" placeholder="Paste the email here, including the subject line if you can"></textarea></label>
+        <div class="bd-imp-btns">
+          <button type="button" class="mini" id="bdPaste">Paste from clipboard</button>
+          <label class="mini bd-file">Open .eml / .ics file<input type="file" id="bdFile" accept=".eml,.ics,.txt,message/rfc822,text/calendar,text/plain" hidden></label>
+        </div>
+      </div>
+      <div id="bdImpStep2" hidden></div>
+    </div>
+    <div class="rp-actions">
+      <button type="button" class="btn primary" id="bdRead">Read email</button>
+      <button type="button" class="btn" id="bdBack" hidden>Back</button>
+      <button type="button" class="btn" data-close>Cancel</button>
     </div>
   </div>
 </div>
